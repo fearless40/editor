@@ -1,0 +1,87 @@
+// #include "version.hpp"
+#include "compositor.hpp"
+#include "image.hpp"
+#include "render.hpp"
+#include "soa.hpp"
+#include "soamemorylayout.hpp"
+#include "term_control.hpp"
+#include <iostream>
+#include <print>
+#include <ranges>
+#include <stack>
+void begin_game();
+
+void soa_test() {
+  // util::soa::SOA<util::soa::DynamicArray, char, int> soa;
+  // {
+  //   util::soa::SOA<util::soa::memory_layout::FixedArray<100>, char, int> soa;
+  //
+  //   soa.push_back('a', 1);
+  //   soa.push_back('b', 2);
+  //   soa.push_back('c', 3);
+  //   soa.push_back('d', 4);
+  //
+  //   std::println("Capacity: {}, Size: {}", soa.capacity(), soa.size());
+  // }
+  // {
+  //   util::soa::SOA<util::soa::memory_layout::DynamicArray, char, int> soa;
+  //
+  //   soa.push_back('a', 1);
+  //   soa.push_back('b', 2);
+  //   soa.push_back('c', 3);
+  //   soa.push_back('d', 4);
+  //
+  //   for (int i = 1; i < 250; ++i) {
+  //     soa.push_back('a', i);
+  //   }
+  //
+  //   soa.remove(soa.end() - 1);
+  //
+  //   std::println("Capacity: {}, Size: {}", soa.capacity(), soa.size());
+  // }
+}
+
+void image_test() {
+  //
+  //
+  // term::TermControl tc{};
+  // using ColorOnly = term::details::Pixel_<term::Color, term::ASCII>;
+  // term::Image<ColorOnly> picture(10, 10);
+  //
+  // for (unsigned int x = 0; x < picture.width(); ++x) {
+  //   for (unsigned int y = 0; y < picture.height(); ++y) {
+  //     ColorOnly p;
+  //     p.red = y * 10;
+  //     p.green = x * 10;
+  //     p.blue = x * y;
+  //     p.value = 'a' + x;
+  //
+  //     picture.set_pixel(x, y, p);
+  //   }
+  // }
+  //
+  // unsigned char buffer[4096];
+  //
+  // term::details::render_to_buffer(picture, buffer);
+  //
+  // std::cout << buffer; //<< std::endl;
+  //
+  // while (1) {
+  //   tc.on_loop();
+  //
+  //   // sleep(1);
+  // }
+}
+
+int main(int argv, char *argc[]) {
+
+  // std::cout << "Hello from the battleship program!\n";
+  // std::cout << "Version: " << Version::MAJOR_VERSION << "."
+  //           << Version::MINOR_VERSION << '\n';
+
+  // compositor_test();
+
+  return 0;
+  begin_game();
+  return 0;
+}
