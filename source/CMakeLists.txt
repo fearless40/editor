@@ -21,12 +21,7 @@ target_sources( adam.util
         ${ROOT_DIR}/include/util/stackhelpers.hpp
 )
 
-# target_include_directories(
-#    util
-#    PUBLIC
-#    ${ROOT_DIR}/include/util
-# )
-#
+
 add_library( adam.geom
    STATIC
       geom/rowcol.cpp
@@ -88,120 +83,21 @@ target_link_libraries( adam.terminal
 )
 
 
-add_library(
-   battleship.AIBasic
-   STATIC
-      ai/averageai.cpp
-      ai/bestai.cpp
-      ai/guessallai.cpp
-      ai/stupidai.cpp
-)
 
-add_library( battleship::AIBasic ALIAS battleship.AIBasic )
-
-target_sources( battleship.AIBasic
-   PUBLIC
-      FILE_SET HEADERS
-      BASE_DIRS ${ROOT_DIR}/include/ai/
-      FILES
-        ${ROOT_DIR}/include/ai/ai.hpp
-        ${ROOT_DIR}/include/ai/averageai.hpp
-        ${ROOT_DIR}/include/ai/bestai.hpp
-        ${ROOT_DIR}/include/ai/guessallai.hpp
-        ${ROOT_DIR}/include/ai/smartai.hpp
-        ${ROOT_DIR}/include/ai/stupidai.hpp
-)
-
-# target_include_directories(
-#    battleship.AIBasic
-#    PUBLIC
-#    "${ROOT_DIR}/include/ai"
-# )
-
-target_link_libraries(
-   battleship.AIBasic
-   PUBLIC
-   adam.util
-   battleship.gameserver
-)
-
-target_link_libraries(adam.geom
-   PUBLIC
-      adam.util
-)
-
-add_library(
-   battleship.gameserver
-   STATIC
-      gameserver/ship.cpp
-   )
-
-add_library( battleship::gameserver ALIAS battleship.gameserver)
-
-target_sources( battleship.gameserver
-   PUBLIC
-      FILE_SET HEADERS
-      BASE_DIRS ${ROOT_DIR}/include/gameserver/
-      FILES
-         ${ROOT_DIR}/include/gameserver/action.hpp
-         ${ROOT_DIR}/include/gameserver/actionresponse.hpp
-         ${ROOT_DIR}/include/gameserver/api.hpp
-         ${ROOT_DIR}/include/gameserver/gamelayout.hpp
-         ${ROOT_DIR}/include/gameserver/server.hpp
-         ${ROOT_DIR}/include/gameserver/ship.hpp
-)
-
-
-# target_include_directories(
-#    gameserver
-#    PUBLIC
-#    "${ROOT_DIR}/include/gameserver"
-# )
-
-target_link_libraries( battleship.gameserver
-   PUBLIC
-   adam.geom
-   adam.util
-)
 
 
 add_executable(
-   battleship.battleship
+   CppEditor
+
    main.cpp
-   simpleui.cpp
 )
 
-add_executable(
-   adam.fireapp
-   fireapp.cpp
-)
-
-target_link_libraries(
-   adam.fireapp
-   PRIVATE
-      adam.geom
-      adam.util
-      adam.terminal
-
-)
-
-target_link_libraries(
-   battleship.battleship
+target_link_libraries(CppEditor
    PUBLIC
-   battleship.gameserver
-   adam.util
-   battleship.AIBasic
-   adam.terminal
-)
+   adam::terminal
+   adam::util
 
-# target_include_directories (
-#    battleship.battleship
-#    PUBLIC ${ROOT_DIR}/include
-#
-#    # For auto generated files from CMAKE
-#    PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include"
-# )
-#
+)
 
 
 
