@@ -1,5 +1,5 @@
 #include "term_control.hpp"
-#include "keyparser.hpp"
+#include "parsers.hpp"
 #include <atomic>
 #include <csignal>
 #include <exception>
@@ -196,6 +196,7 @@ void TermControl::on_loop() {
 
   if (pdata.revents & POLLIN) {
     // Read the data from stdin
+
     char buff[128];
     auto amount = read(STDIN_FILENO, buff, 128);
     if (amount <= 0)
@@ -203,14 +204,14 @@ void TermControl::on_loop() {
 
     const std::string_view buffer_view(buff, amount);
     // std::cout << buffer_view << '\n';
-    if (input::is_mouse_protocol(buffer_view)) {
+    if (parsers::is_mouse_protocol(buffer_view)) {
       mouse_changed_ = true;
-      mouseevt_ = input::parse_mouse(buffer_view);
+      mouseevt_ = parsers::mouse(buffer_view);
       // std::println("Mouse {}:{} Button {} ", ms.row, ms.col, (int)ms.button);
 
     } else {
       key_changed_ = true;
-      keyevt_ = input::parse_key(buffer_view);
+      keyevt_ = parsers::key(buffer_view);
       // std::println("Key {} Shift {} Ctrl {} Alt {} Pressed {} Released {}",
       //              key.key, (bool)key.shift, (bool)key.ctl, (bool)key.alt,
       //              key.position == input::KeyPosition::pressed,

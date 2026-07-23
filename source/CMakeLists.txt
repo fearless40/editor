@@ -45,8 +45,10 @@ target_sources( adam.geom
 
 add_library( adam.terminal
    STATIC
-      terminal/keyparser.cpp
+      terminal/parsers.cpp
       terminal/term_control.cpp
+      terminal/terminfo.cpp
+      terminal/parsers.cpp
 )
 
 add_library( adam::terminal ALIAS adam.terminal)
@@ -57,7 +59,6 @@ target_sources( adam.terminal
       BASE_DIRS ${ROOT_DIR}/include/terminal/
       FILES
          ${ROOT_DIR}/include/terminal/color.hpp
-         ${ROOT_DIR}/include/terminal/control_codes.hpp
          ${ROOT_DIR}/include/terminal/pixel.hpp
          ${ROOT_DIR}/include/terminal/scanline_stack_render.hpp
          ${ROOT_DIR}/include/terminal/compositor.hpp
@@ -65,9 +66,11 @@ target_sources( adam.terminal
          ${ROOT_DIR}/include/terminal/render.hpp
          ${ROOT_DIR}/include/terminal/scanline_stack_row.hpp
          ${ROOT_DIR}/include/terminal/compositor_shared.hpp
-         ${ROOT_DIR}/include/terminal/keyparser.hpp
+         ${ROOT_DIR}/include/terminal/parsers.hpp
          ${ROOT_DIR}/include/terminal/scanlinerender_painter.hpp
          ${ROOT_DIR}/include/terminal/term_control.hpp
+         ${ROOT_INCLUDE}/terminal/types.hpp
+         ${ROOT_INCLUDE}/terminal/terminfo.hpp
    )
 
 # target_include_directories(

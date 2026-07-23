@@ -1,15 +1,14 @@
-#include "keyparser.hpp"
+#include "parsers.hpp"
 #include <cctype>
 #include <charconv>
 #include <cstring>
-#include <string_view>
 
-namespace term::input {
-
+// Extracts digits while it reads a digit or encounters a sentinal value
+// Leaves the value on the sentinal or nondigit
 template <typename Iterator, typename Sentinal>
-int digits(Iterator &it, const Sentinal S) {
+static int digits(Iterator &it, const Sentinal S) {
   auto start = it;
-  while (isdigit(*it) && it != S) {
+  while (it != S and isdigit(*it)) {
     ++it;
   };
 
@@ -19,7 +18,7 @@ int digits(Iterator &it, const Sentinal S) {
 }
 
 template <typename Iterator, typename Sentinal>
-void next_match(char letter, Iterator &start, const Sentinal S) {
+static void next_match(char letter, Iterator &start, const Sentinal S) {
   while (start != S) {
     if (*start == letter)
       return;
@@ -27,7 +26,22 @@ void next_match(char letter, Iterator &start, const Sentinal S) {
   }
 }
 
-KeyStatus parse_key(const std::string_view buffer) noexcept {
+// Moves the iterator the to next valid character
+template <typename Iterator, typename Sentinal>
+static bool validate_escape(Iterator &start, const Sentinal S) {
+  if (start != S and *start != '\e')
+    return false;
+  if (start != S and *++start != '[')
+    return false;
+  if (++start != S)
+    return true;
+
+  return false;
+}
+
+namespace term::parsers {
+
+KeyStatus key(const std::string_view buffer) noexcept {
 
   // Key protocol looks like
   // CSI unicode-key-code:alternate-key-codes ; modifiers:event-type ;
@@ -42,12 +56,8 @@ KeyStatus parse_key(const std::string_view buffer) noexcept {
 
   auto start = buffer.begin();
 
-  if (*start != '\e')
+  if (!validate_escape(start, buffer.end()))
     return k;
-  if (*++start != '[')
-    return k;
-
-  ++start;
 
   k.key = digits(start, buffer.end());
 
@@ -92,16 +102,15 @@ KeyStatus parse_key(const std::string_view buffer) noexcept {
   return k;
 }
 
-MouseStatus parse_mouse(const std::string_view buffer) noexcept {
+MouseStatus mouse(const std::string_view buffer) noexcept {
 
   MouseStatus ms;
   std::memset(&ms, 0, sizeof(MouseStatus));
 
   auto start = buffer.begin();
-  if (*start != '\e')
+  if (!validate_escape(start, buffer.end()))
     return ms;
-  if (*++start != '[')
-    return ms;
+
   if (*++start != '<')
     return ms;
 
@@ -126,4 +135,20 @@ MouseStatus parse_mouse(const std::string_view buffer) noexcept {
   return ms;
 }
 
-} // namespace term::input
+std::optional<Position>
+cursor_position(const std::string_view buffer) noexcept {
+
+  auto start = buffer.begin();
+  if (!validate_escape(start, buffer.end()))
+    return {};
+
+  auto row = Row{digits(start, buffer.end())};
+  // Verify ;
+  if (*start != ';')
+    return {};
+
+  auto col = Col{digits(++start, buffer.end())};
+
+  return {Position{row, col}};
+}
+} // namespace term::parsers

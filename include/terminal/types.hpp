@@ -1,10 +1,20 @@
 #pragma once
-
 #include <cstdint>
-#include <string_view>
-namespace term::input {
+#include <utility>
 
-enum class KeyPosition : uint8_t { unknown = 0, pressed, released, repeat };
+namespace term {
+
+enum class Row : int {};
+enum class Col : int {};
+
+using Position = std::pair<Row, Col>;
+
+enum class KeyPosition : std::uint8_t {
+  unknown = 0,
+  pressed,
+  released,
+  repeat
+};
 
 enum class KeyCodes {
   ESCAPE = 27,
@@ -165,19 +175,4 @@ struct MouseStatus {
   constexpr bool right_up() { return press == 0 && button == Button::Right; }
 };
 
-constexpr bool is_mouse_protocol(const std::string_view buffer) noexcept {
-  // const std::uint16_t value = (std::uint16_t)(('\e' << 16) | ('[' << 8) |
-  // '<'); return value ==
-  //        ((*reinterpret_cast<const std::uint16_t *>(buffer.data())) &
-  //        0xFFFFFF);
-
-  if (buffer.size() <= 2)
-    return false;
-  auto start = buffer.begin();
-  return *start == '\e' && *(start + 1) == '[' && *(start + 2) == '<';
-}
-
-MouseStatus parse_mouse(const std::string_view buffer) noexcept;
-KeyStatus parse_key(const std::string_view buffer) noexcept;
-
-} // namespace term::input
+} // namespace term

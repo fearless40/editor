@@ -1,10 +1,13 @@
 // #include "version.hpp"
 #include "compositor.hpp"
 #include "image.hpp"
+#include "parsers.hpp"
 #include "render.hpp"
 #include "soa.hpp"
 #include "soamemorylayout.hpp"
 #include "term_control.hpp"
+#include "terminfo.hpp"
+#include <cstdlib>
 #include <iostream>
 #include <print>
 #include <ranges>
@@ -73,6 +76,55 @@ void image_test() {
   // }
 }
 
+struct EditorGlobals {
+  term::Row rows;
+  term::Col cols;
+};
+
+EditorGlobals editor_globals;
+
+void refresh_screen() {
+  term::clear_screen();
+  term::set_cursor_position();
+  for (int r = 0; r < std::to_underlying(editor_globals.rows); ++r) {
+    std::puts("~\n");
+  }
+}
+
+// Returns false to indicate quitting
+bool process_key_presses(const term::KeyStatus &key) {
+  if (key.key > 255)
+    return true;
+  if (key.position == term::KeyPosition::released && key.key == 'q' &&
+      key.alt == true)
+    return false;
+  if (key.position == term::KeyPosition::released && key.key == 'm' &&
+      key.alt == true) {
+    auto posOp = term::info::get_cursor_position();
+    if (posOp) {
+      auto pos = posOp.value();
+      std::cout << "Cursor Pos: " << std::to_underlying(pos.first) << ":"
+                << std::to_underlying(pos.second);
+      return true;
+    } else {
+      std::cout << "Could not read cursor position.\n";
+      return true;
+    }
+  }
+
+  if (key.position == term::KeyPosition::released && key.key == 'c' &&
+      key.alt == true) {
+    refresh_screen();
+    return true;
+  }
+
+  if (key.position == term::KeyPosition::released)
+    // Otherwise echo the key
+    std::cout << (char)key.key;
+
+  return true;
+}
+
 int main(int argv, char *argc[]) {
 
   // std::cout << "Hello from the battleship program!\n";
@@ -81,7 +133,18 @@ int main(int argv, char *argc[]) {
 
   // compositor_test();
 
-  return 0;
-  begin_game();
+  term::TermControl tc{};
+  bool still_running = true;
+
+  editor_globals.rows = term::Row{tc.height()};
+  editor_globals.cols = term::Col{tc.width()};
+
+  while (still_running) {
+    tc.on_loop();
+    if (tc.had_key_event()) {
+      still_running = process_key_presses(tc.get_key_event());
+    }
+  }
+
   return 0;
 }

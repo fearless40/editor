@@ -1,6 +1,6 @@
 #pragma once
 
-#include "keyparser.hpp"
+#include "types.hpp"
 #include <termios.h>
 
 namespace term {
@@ -13,9 +13,9 @@ private:
   void uninstall_signals();
   termios tp_old_;
 
-  input::KeyStatus keyevt_;
+  KeyStatus keyevt_;
   bool key_changed_{false};
-  input::MouseStatus mouseevt_;
+  MouseStatus mouseevt_;
   bool mouse_changed_{false};
 
   bool window_resized_{false};
@@ -32,10 +32,8 @@ public:
 
   constexpr bool had_mouse_event() const noexcept { return mouse_changed_; };
   constexpr bool had_key_event() const noexcept { return key_changed_; };
-  constexpr const input::KeyStatus &get_key_event() const noexcept {
-    return keyevt_;
-  }
-  constexpr const input::MouseStatus &get_mouse_event() const noexcept {
+  constexpr const KeyStatus &get_key_event() const noexcept { return keyevt_; }
+  constexpr const MouseStatus &get_mouse_event() const noexcept {
     return mouseevt_;
   }
 

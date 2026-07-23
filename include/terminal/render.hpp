@@ -1,6 +1,9 @@
 #pragma once
 
 #include "image.hpp"
+#include "types.hpp"
+#include "utility.hpp"
+#include <cstdio>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -43,30 +46,6 @@ using Make_Cache = decltype(std::apply(
     [](auto... t) consteval { return Cache<decltype(t)...>{}; },
     std::declval<T>()));
 
-template <typename CPtr> constexpr CPtr to_chars(CPtr start, int value) {
-
-  if (value > 9999 || value < 0)
-    return start;
-
-  int nbrChars = 4;
-
-  if (value <= 9)
-    nbrChars = 1;
-  else if (value <= 99)
-    nbrChars = 2;
-  else if (value <= 999)
-    nbrChars = 3;
-  else if (value <= 9999)
-    nbrChars = 4;
-
-  int i = nbrChars;
-  do {
-    start[--i] = '0' + (value % 10);
-    value /= 10;
-  } while (value != 0);
-  return start + nbrChars;
-}
-
 template <typename CPtr>
 constexpr CPtr relative(CPtr begin, int value, char motion) {
   CPtr c = begin;
@@ -97,11 +76,11 @@ constexpr void write_color(typename OutputBuffer::iterator &out, int color) {
   *++out = ';';
   *++out = '2';
   *++out = ';';
-  out = to_chars(++out, (color >> 16) & 0xFF);
+  out = util::to_chars(++out, (color >> 16) & 0xFF);
   *out = ';';
-  out = to_chars(++out, (color >> 8) & 0xFF);
+  out = util::to_chars(++out, (color >> 8) & 0xFF);
   *out = ';';
-  out = to_chars(++out, color & 0xFF);
+  out = util::to_chars(++out, color & 0xFF);
   *out = 'm';
   ++out;
 }
@@ -148,4 +127,11 @@ void render_to_buffer(const Image<PXFormat> &img,
 // if constexpr ( typename PXFormat::is_ASCII ) {
 
 } // namespace details
+
+inline void clear_screen() { std::puts("\e[2J"); }
+
+inline void set_cursor_position() { std::puts("\e[H"); };
+
+void set_cursor_position(Row r, Col c);
+
 } // namespace term
