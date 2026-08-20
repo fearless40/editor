@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <memory>
 #include <ranges>
-#include <type_traits>
 
 namespace term {
 

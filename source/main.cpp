@@ -1,17 +1,9 @@
 // #include "version.hpp"
-#include "compositor.hpp"
-#include "image.hpp"
-#include "parsers.hpp"
+#include "cursor.hpp"
 #include "render.hpp"
-#include "soa.hpp"
-#include "soamemorylayout.hpp"
 #include "term_control.hpp"
 #include "terminfo.hpp"
-#include <cstdlib>
 #include <iostream>
-#include <print>
-#include <ranges>
-#include <stack>
 void begin_game();
 
 void soa_test() {
@@ -84,11 +76,14 @@ struct EditorGlobals {
 EditorGlobals editor_globals;
 
 void refresh_screen() {
-  term::clear_screen();
-  term::set_cursor_position();
+  term::SizedCommandBuffer<255> buff;
+  term::clear_screen(buff);
   for (int r = 0; r < std::to_underlying(editor_globals.rows); ++r) {
-    std::puts("~\n");
+    buff.add("~\n");
   }
+
+  term::cursor::reset_position(buff);
+  buff.submit();
 }
 
 // Returns false to indicate quitting

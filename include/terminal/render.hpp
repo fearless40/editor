@@ -1,10 +1,11 @@
 #pragma once
 
+#include "commandbuffer.hpp"
 #include "image.hpp"
-#include "types.hpp"
 #include "utility.hpp"
 #include <cstdio>
 #include <span>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -51,7 +52,7 @@ constexpr CPtr relative(CPtr begin, int value, char motion) {
   CPtr c = begin;
   *c = '\e';
   *++c = '[';
-  c = to_chars(++c, value);
+  c = digits::to_chars(++c, value);
   *++c = motion;
   return ++c;
 }
@@ -76,11 +77,11 @@ constexpr void write_color(typename OutputBuffer::iterator &out, int color) {
   *++out = ';';
   *++out = '2';
   *++out = ';';
-  out = util::to_chars(++out, (color >> 16) & 0xFF);
+  out = digits::to_chars(++out, (color >> 16) & 0xFF);
   *out = ';';
-  out = util::to_chars(++out, (color >> 8) & 0xFF);
+  out = digits::to_chars(++out, (color >> 8) & 0xFF);
   *out = ';';
-  out = util::to_chars(++out, color & 0xFF);
+  out = digits::to_chars(++out, color & 0xFF);
   *out = 'm';
   ++out;
 }
@@ -128,10 +129,12 @@ void render_to_buffer(const Image<PXFormat> &img,
 
 } // namespace details
 
+inline void clear_screen(CommandBuffer &buffer) {
+  const std::string_view data{"\e[2j"};
+  buffer.CSI();
+  buffer.add("2J");
+}
+
 inline void clear_screen() { std::puts("\e[2J"); }
-
-inline void set_cursor_position() { std::puts("\e[H"); };
-
-void set_cursor_position(Row r, Col c);
 
 } // namespace term

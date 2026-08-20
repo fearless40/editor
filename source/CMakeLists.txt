@@ -49,6 +49,7 @@ add_library( adam.terminal
       terminal/term_control.cpp
       terminal/terminfo.cpp
       terminal/parsers.cpp
+      terminal/cursor.cpp
 )
 
 add_library( adam::terminal ALIAS adam.terminal)
@@ -71,6 +72,8 @@ target_sources( adam.terminal
          ${ROOT_DIR}/include/terminal/term_control.hpp
          ${ROOT_INCLUDE}/terminal/types.hpp
          ${ROOT_INCLUDE}/terminal/terminfo.hpp
+         ${ROOT_INCLUDE}/terminal/commandbuffer.hpp
+         ${ROOT_INCLUDE}/terminal/cursor.hpp
    )
 
 # target_include_directories(
