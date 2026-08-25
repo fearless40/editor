@@ -3,7 +3,9 @@
 #include "render.hpp"
 #include "term_control.hpp"
 #include "terminfo.hpp"
+#include "types.hpp"
 #include <iostream>
+#include <utility>
 void begin_game();
 
 void soa_test() {
@@ -88,14 +90,12 @@ void refresh_screen() {
 
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key) {
-  if (key.key > 255)
-    return true;
   if (key.position == term::KeyPosition::released && key.key == 'q' &&
       key.alt == true)
     return false;
   if (key.position == term::KeyPosition::released && key.key == 'm' &&
       key.alt == true) {
-    auto posOp = term::info::get_cursor_position();
+    auto posOp = term::cursor::get_position();
     if (posOp) {
       auto pos = posOp.value();
       std::cout << "Cursor Pos: " << std::to_underlying(pos.first) << ":"
@@ -113,9 +113,30 @@ bool process_key_presses(const term::KeyStatus &key) {
     return true;
   }
 
-  if (key.position == term::KeyPosition::released)
+  if (key.position == term::KeyPosition::released) {
+    if (key.key == std::to_underlying(term::KeyCodes::UP)) {
+      // std::cout << "Up:" << key.key << " ";
+      term::cursor::up(1);
+      return true;
+    }
+    if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
+      term::cursor::left(1);
+      // std::cout << "LEFT:" << key.key << " ";
+      return true;
+    }
+    if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
+      term::cursor::down(1);
+      // std::cout << "Down:" << key.key << " ";
+      return true;
+    }
+    if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
+      term::cursor::right(1);
+      // std::cout << "Right:" << key.key << " ";
+      return true;
+    }
     // Otherwise echo the key
     std::cout << (char)key.key;
+  }
 
   return true;
 }

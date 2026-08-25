@@ -1,7 +1,11 @@
 #include "parsers.hpp"
+#include "types.hpp"
 #include <cctype>
 #include <charconv>
 #include <cstring>
+#include <string_view>
+
+#include <utility>
 
 // Extracts digits while it reads a digit or encounters a sentinal value
 // Leaves the value on the sentinal or nondigit
@@ -98,6 +102,46 @@ KeyStatus key(const std::string_view buffer) noexcept {
     k.position = KeyPosition::released;
     break;
   };
+
+  char trailing_code = *++start;
+
+  if (trailing_code != 'u') {
+    // Parse special function keys
+    switch (trailing_code) {
+    case 'D':
+      k.key = std::to_underlying(KeyCodes::LEFT);
+      break;
+    case 'A':
+      k.key = std::to_underlying(KeyCodes::UP);
+      break;
+
+    case 'C':
+      k.key = std::to_underlying(KeyCodes::RIGHT);
+      break;
+
+    case 'B':
+      k.key = std::to_underlying(KeyCodes::DOWN);
+      break;
+    case 'H':
+      k.key = std::to_underlying(KeyCodes::HOME);
+      break;
+
+    case 'F':
+      k.key = std::to_underlying(KeyCodes::END);
+      break;
+
+    case 'P':
+      k.key = std::to_underlying(KeyCodes::F1);
+      break;
+
+    case 'Q':
+      k.key = std::to_underlying(KeyCodes::F2);
+      break;
+    case 'S':
+      k.key = std::to_underlying(KeyCodes::F4);
+      break;
+    }
+  }
 
   return k;
 }

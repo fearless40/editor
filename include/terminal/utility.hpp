@@ -15,6 +15,8 @@ constexpr unsigned int number_chars_for_integer(unsigned int value) {
     return 3;
   else if (value <= 9999)
     return 4;
+  else
+    return 10;
 };
 
 // In place conversion of numbers to text in the given buffer.
