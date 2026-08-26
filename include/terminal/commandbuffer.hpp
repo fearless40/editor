@@ -15,9 +15,10 @@ struct CommandBuffer {
   virtual void submit_and_clear() = 0;
   virtual void submit() const = 0;
   virtual void clear() = 0;
+  virtual char *data() = 0;
   virtual std::string_view as_string_view() const = 0;
   virtual std::size_t size() const = 0;
-  virtual std::size_t max_size() const = 0;
+  virtual std::size_t capacity() const = 0;
   constexpr bool CSI() { return add("\x1b["); }
 
   static constexpr void write(std::string_view data) {
@@ -25,38 +26,24 @@ struct CommandBuffer {
   }
 
   // Will always clear the response buffer
-  static constexpr bool read_response(const CommandBuffer &command,
-                                      CommandBuffer &response) {
-
-    command.submit();
-
-    bool success{false};
-    response.clear();
-    char value;
-    while (response.size() < response.max_size()) {
-      if (::read(STDIN_FILENO, &value, 1) != 1)
-        break;
-
-      response.add(value);
-    }
-    if (response.size() == 0)
-      return false;
-
-    return true;
-  }
+  static bool read_response(const CommandBuffer &command,
+                            CommandBuffer &response);
 };
 
 template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
-  char data[BUFFSIZE];
+  char m_data[BUFFSIZE];
   unsigned char write_position{0};
 
   constexpr std::string_view as_string_view() const override {
-    return std::string_view{data, static_cast<std::size_t>(write_position) - 1};
+    return std::string_view{m_data,
+                            static_cast<std::size_t>(write_position) - 1};
   }
+
+  constexpr char *data() override { return m_data; }
 
   constexpr void clear() override { write_position = 0; }
 
-  constexpr std::size_t max_size() const override { return BUFFSIZE; }
+  constexpr std::size_t capacity() const override { return BUFFSIZE; }
 
   constexpr std::size_t size() const override { return write_position; }
 
@@ -73,7 +60,7 @@ template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
       }
     }
 
-    std::memcpy(&data[write_position], command.data(), command.length());
+    std::memcpy(&m_data[write_position], command.data(), command.length());
     adjust_positions(command.length());
     return true;
   }
@@ -81,7 +68,7 @@ template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
   constexpr bool add(char c) override {
     if (write_position + 1 >= BUFFSIZE)
       return false;
-    data[write_position] = c;
+    m_data[write_position] = c;
     adjust_positions(1);
     return true;
   }
@@ -91,10 +78,10 @@ template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
       return false;
     }
 
-    auto endWrite = digits::to_chars(&data[write_position], number);
+    auto endWrite = digits::to_chars(&m_data[write_position], number);
 
     auto length = static_cast<unsigned int>(
-        std::distance(&data[write_position], endWrite));
+        std::distance(&m_data[write_position], endWrite));
 
     adjust_positions(length);
 
@@ -106,7 +93,7 @@ template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
     clear();
   }
   void submit() const override {
-    ::write(STDOUT_FILENO, &data, write_position);
+    ::write(STDOUT_FILENO, &m_data, write_position);
   }
 };
 

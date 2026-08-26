@@ -4,12 +4,24 @@
 #include <optional>
 namespace term::cursor {
 
-inline void reset_position(CommandBuffer &buff) {
+using namespace std::string_view_literals;
+
+constexpr void reset_position(CommandBuffer &buff) {
   buff.CSI();
   buff.add('H');
 };
 
-inline void reset_position() { CommandBuffer::write("\e[H"); };
+constexpr void off(CommandBuffer &buff) {
+  buff.CSI();
+  buff.add("25?l"sv);
+};
+
+constexpr void on(CommandBuffer &buff) {
+  buff.CSI();
+  buff.add("?25h"sv);
+}
+
+constexpr void reset_position() { CommandBuffer::write("\e[H"sv); };
 
 void position(CommandBuffer &buff, Row r, Col c);
 

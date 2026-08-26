@@ -1,10 +1,12 @@
 // #include "version.hpp"
 #include "cursor.hpp"
+#include "dynamiccommandbuffer.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
 #include "terminfo.hpp"
 #include "types.hpp"
 #include <iostream>
+#include <ranges>
 #include <utility>
 void begin_game();
 
@@ -73,18 +75,53 @@ void image_test() {
 struct EditorGlobals {
   term::Row rows;
   term::Col cols;
+  term::Row cr;
+  term::Col cc;
 };
 
 EditorGlobals editor_globals;
 
 void refresh_screen() {
-  term::SizedCommandBuffer<255> buff;
+  auto line1 = "Welcome to my stupid editor"sv;
+  auto line2 = "by"sv;
+  auto line3 = "Adam Spivack"sv;
+  auto line4 = "Version 0.0"sv;
+
+  auto left_padding = [&](std::size_t length) -> auto {
+    auto col = std::to_underlying(editor_globals.cols);
+    return (col - length) / 2;
+  };
+
+  term::DynamicCommandBuffer buff;
+  term::cursor::off(buff);
   term::clear_screen(buff);
   for (int r = 0; r < std::to_underlying(editor_globals.rows); ++r) {
-    buff.add("~\n");
+    if (r == 3) {
+      buff.m_data.append_range(
+          std::ranges::views::repeat(' ', left_padding(line1.length())));
+      buff.m_data.append(line1);
+      buff.add('\n');
+    } else if (r == 4) {
+      buff.m_data.append_range(
+          std::ranges::views::repeat(' ', left_padding(line2.length())));
+      buff.m_data.append(line2);
+      buff.add('\n');
+    } else if (r == 5) {
+      buff.m_data.append_range(
+          std::ranges::views::repeat(' ', left_padding(line3.length())));
+      buff.m_data.append(line3);
+      buff.add('\n');
+    } else if (r == 6) {
+      buff.m_data.append_range(
+          std::ranges::views::repeat(' ', left_padding(line4.length())));
+      buff.m_data.append(line4);
+      buff.add('\n');
+    } else
+      buff.add("~\n");
   }
 
   term::cursor::reset_position(buff);
+  term::cursor::on(buff);
   buff.submit();
 }
 

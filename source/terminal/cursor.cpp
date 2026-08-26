@@ -22,7 +22,7 @@ std::optional<Position> get_position() {
   command.add("6n");
 
   if (!CommandBuffer::read_response(command, response))
-    std::puts("Error could not read the cursor position.");
+    CommandBuffer::write("Error could not read the cursor position."sv);
 
   return parsers::cursor_position(response.as_string_view());
 }

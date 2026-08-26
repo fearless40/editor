@@ -3,11 +3,12 @@
 #include "commandbuffer.hpp"
 #include "image.hpp"
 #include "utility.hpp"
-#include <cstdio>
 #include <span>
 #include <string_view>
 #include <type_traits>
 #include <utility>
+
+using namespace std::string_view_literals;
 
 namespace term {
 
@@ -130,11 +131,10 @@ void render_to_buffer(const Image<PXFormat> &img,
 } // namespace details
 
 inline void clear_screen(CommandBuffer &buffer) {
-  const std::string_view data{"\e[2j"};
   buffer.CSI();
   buffer.add("2J");
 }
 
-inline void clear_screen() { std::puts("\e[2J"); }
+inline void clear_screen() { CommandBuffer::write("\e[2J"sv); }
 
 } // namespace term
