@@ -1,6 +1,8 @@
 // #include "version.hpp"
 #include "cursor.hpp"
+#include "textbufferview.hpp"
 #include "dynamiccommandbuffer.hpp"
+#include "textbuffer.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
 #include "types.hpp"
@@ -12,175 +14,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-void begin_game();
 
-void soa_test() {
-  // util::soa::SOA<util::soa::DynamicArray, char, int> soa;
-  // {
-  //   util::soa::SOA<util::soa::memory_layout::FixedArray<100>, char, int> soa;
-  //
-  //   soa.push_back('a', 1);
-  //   soa.push_back('b', 2);
-  //   soa.push_back('c', 3);
-  //   soa.push_back('d', 4);
-  //
-  //   std::println("Capacity: {}, Size: {}", soa.capacity(), soa.size());
-  // }
-  // {
-  //   util::soa::SOA<util::soa::memory_layout::DynamicArray, char, int> soa;
-  //
-  //   soa.push_back('a', 1);
-  //   soa.push_back('b', 2);
-  //   soa.push_back('c', 3);
-  //   soa.push_back('d', 4);
-  //
-  //   for (int i = 1; i < 250; ++i) {
-  //     soa.push_back('a', i);
-  //   }
-  //
-  //   soa.remove(soa.end() - 1);
-  //
-  //   std::println("Capacity: {}, Size: {}", soa.capacity(), soa.size());
-  // }
-}
-
-void image_test() {
-  //
-  //
-  // term::TermControl tc{};
-  // using ColorOnly = term::details::Pixel_<term::Color, term::ASCII>;
-  // term::Image<ColorOnly> picture(10, 10);
-  //
-  // for (unsigned int x = 0; x < picture.width(); ++x) {
-  //   for (unsigned int y = 0; y < picture.height(); ++y) {
-  //     ColorOnly p;
-  //     p.red = y * 10;
-  //     p.green = x * 10;
-  //     p.blue = x * y;
-  //     p.value = 'a' + x;
-  //
-  //     picture.set_pixel(x, y, p);
-  //   }
-  // }
-  //
-  // unsigned char buffer[4096];
-  //
-  // term::details::render_to_buffer(picture, buffer);
-  //
-  // std::cout << buffer; //<< std::endl;
-  //
-  // while (1) {
-  //   tc.on_loop();
-  //
-  //   // sleep(1);
-  // }
-}
-
-struct TextBuffer {
-  std::vector<std::string> rows;
-  std::size_t number_rows() const { return rows.size(); }
-  constexpr bool empty() const { return rows.empty(); }
-
-  constexpr std::size_t line_length(unsigned row) const {
-    if (row >= rows.size())
-      return 0;
-    return rows[row].length();
-  }
-
-  void append_row(std::string_view data) { rows.emplace_back(data); }
-};
-
-struct TextBufferView {
-  TextBuffer &view;
-
-  std::size_t screen_rows{0};
-  std::size_t screen_cols{0};
-  long cursor_row{0};
-  long cursor_col{0};
-  std::size_t row_offset{0};
-  std::size_t col_offset{0};
-  bool view_scrolled_rows{true};
-  bool view_scrolled_cols{true};
-
-  constexpr term::Row crow() const {
-    return term::Row{(int)(cursor_row - row_offset)};
-  }
-
-  constexpr term::Col ccol() const {
-    return term::Col{(int)(cursor_col - col_offset) + 1};
-  }
-
-  constexpr void adjust_cursor_row(long amount) {
-    cursor_row =
-        std::max(0l, std::min(cursor_row + amount, (long)view.number_rows()));
-  }
-
-  constexpr void do_scroll() {
-
-    if (cursor_row >= row_offset + screen_rows) {
-      row_offset = cursor_row - screen_rows + 1;
-      view_scrolled_rows = true;
-    } else if (cursor_row < row_offset) {
-      row_offset = cursor_row;
-      view_scrolled_rows = true;
-    } else
-      view_scrolled_rows = false;
-
-    if (cursor_col >= col_offset + screen_cols) {
-      col_offset = cursor_col - screen_cols + 1;
-      view_scrolled_cols = true;
-    } else if (cursor_col < col_offset) {
-      col_offset = cursor_col;
-      view_scrolled_cols = true;
-    } else
-      view_scrolled_cols = false;
-  }
-
-  constexpr void validate_cursor_position() {
-    if (cursor_col < 0)
-      cursor_col = 0;
-
-    if (auto len = view.line_length(cursor_row); cursor_col > len) {
-      cursor_col = len;
-    }
-
-    do_scroll();
-  }
-
-  constexpr void up(unsigned int amt) {
-    adjust_cursor_row(-(long)amt);
-    validate_cursor_position();
-  }
-
-  constexpr void down(unsigned int amt) {
-    adjust_cursor_row((long)(amt));
-
-    validate_cursor_position();
-  }
-
-  constexpr void left(unsigned int amt) {
-    cursor_col -= (long)amt;
-    if (cursor_col < 0) {
-      adjust_cursor_row(-1);
-      cursor_col = view.line_length(cursor_row);
-    }
-    validate_cursor_position();
-  };
-
-  constexpr void right(unsigned int amt) {
-    cursor_col += (long)amt;
-    if (auto len = view.line_length(cursor_row); cursor_col > len) {
-      adjust_cursor_row(1);
-      cursor_col = 0;
-    }
-
-    // Todo: consider putting in wrapping so if you advance by 10 characters
-    // and you have a line length of 5 cursor would be on character 5 of the
-    // next line.
-
-    validate_cursor_position();
-  }
-};
 
 struct EditorGlobals {
   term::Row rows;
@@ -188,10 +22,30 @@ struct EditorGlobals {
   term::Row cr;
   term::Col cc;
   TextBuffer text;
-  TextBufferView view{text, 0, 0, 0, 0, 0, 0};
+  TextBufferView view{text};
+   bool quit_now {false}; 
 };
 
 EditorGlobals editor_globals;
+
+void render_view( term::CommandBuffer & buff, const TextBufferView & view ) { 
+
+if (view.buffer().empty()) 
+   return; 
+
+    const auto col_size = std::to_underlying(view.window_cols());
+    const auto row_size = std::to_underlying(view.window_rows());
+    for (const auto &[index, row] :
+         std::views::enumerate(view.buffer().rows) |
+             std::views::drop(std::to_underlying(view.row_scroll())) |
+             std::views::take(row_size)) {
+
+      if (std::to_underlying(view.col_scroll()) < row.length())
+        buff.add(row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
+      buff.add('\n');
+    }
+} 
+
 
 void refresh_screen() {
   auto line1 = "Welcome to my stupid editor"sv;
@@ -209,90 +63,38 @@ void refresh_screen() {
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  if (!editor_globals.text.empty()) {
-    const auto col_size = std::to_underlying(editor_globals.cols);
-    const auto row_size = std::to_underlying(editor_globals.rows);
-    for (const auto &[index, row] :
-         std::views::enumerate(editor_globals.text.rows) |
-             std::views::drop(editor_globals.view.row_offset) |
-             std::views::take(row_size)) {
 
-      if (editor_globals.view.col_offset < row.length())
-        buff.add(row.subview(editor_globals.view.col_offset, col_size - 1));
-      buff.add('\n');
-    }
-    // } else {
-    //
-    //   for (int r = 0; r < std::to_underlying(editor_globals.rows); ++r) {
-    //     if (r == 3) {
-    //       buff.m_data.append_range(
-    //           std::ranges::views::repeat(' ',
-    //           left_padding(line1.length())));
-    //       buff.m_data.append(line1);
-    //       buff.add('\n');
-    //     } else if (r == 4) {
-    //       buff.m_data.append_range(
-    //           std::ranges::views::repeat(' ',
-    //           left_padding(line2.length())));
-    //       buff.m_data.append(line2);
-    //       buff.add('\n');
-    //     } else if (r == 5) {
-    //       buff.m_data.append_range(
-    //           std::ranges::views::repeat(' ',
-    //           left_padding(line3.length())));
-    //       buff.m_data.append(line3);
-    //       buff.add('\n');
-    //     } else if (r == 6) {
-    //       buff.m_data.append_range(
-    //           std::ranges::views::repeat(' ',
-    //           left_padding(line4.length())));
-    //       buff.m_data.append(line4);
-    //       buff.add('\n');
-    //     } else
-    //       buff.add("~\n");
-    //   }
-  }
+   render_view( buff, editor_globals.view );
 
-  term::cursor::position(
-      buff, term::Row{(int)editor_globals.view.screen_rows - 1}, term::Col{0});
+  // term::cursor::position(
+  //     buff, term::Row{(int)editor_globals.view.window_rows() - 1}, term::Col{0});
 
-  buff.add("Cursor  R:");
-  buff.add((unsigned int)editor_globals.view.cursor_row);
-  buff.add(" C:");
-  buff.add((unsigned int)editor_globals.view.cursor_col);
-
+  // buff.add("Cursor  R:");
+  // buff.add((unsigned int)view.cursor_row);
+  // buff.add(" C:");
+  // buff.add((unsigned int)view.cursor_col);
+  //
   term::cursor::position(buff, editor_globals.view.crow(),
                          editor_globals.view.ccol());
   term::cursor::on(buff);
   buff.submit();
 }
 
-// Returns false to indicate quitting
-bool process_key_presses(const term::KeyStatus &key) {
-  if (key.position == term::KeyPosition::released && key.key == 'q' &&
-      key.alt == true)
-    return false;
-  if (key.position == term::KeyPosition::released && key.key == 'm' &&
-      key.alt == true) {
-    auto posOp = term::cursor::get_position();
-    if (posOp) {
-      auto pos = posOp.value();
-      std::cout << "Cursor Pos: " << std::to_underlying(pos.first) << ":"
-                << std::to_underlying(pos.second);
-      return true;
-    } else {
-      std::cout << "Could not read cursor position.\n";
-      return true;
-    }
-  }
+enum class RequestReason { 
+   User, 
+   AppError,
+   OSRequest
+};
 
-  if (key.position == term::KeyPosition::released && key.key == 'c' &&
-      key.alt == true) {
-    refresh_screen();
-    return true;
-  }
 
-  if (key.position == term::KeyPosition::pressed) {
+void close_app( RequestReason ){
+   editor_globals.quit_now = true; 
+}
+ 
+void key_press_continous( const term::KeyStatus &key) { 
+  if (key.position != term::KeyPosition::pressed) 
+      return ;
+
     if (key.key == std::to_underlying(term::KeyCodes::UP)) {
       editor_globals.view.up(1);
       // term::cursor::up(1);
@@ -312,6 +114,35 @@ bool process_key_presses(const term::KeyStatus &key) {
     // Otherwise echo the key
     refresh_screen();
   }
+
+void key_press_only_once(const term::KeyStatus &key) { 
+   if (key.position != term::KeyPosition::released) return ; 
+   
+  if (key.key == 'q' && key.alt == true) {
+    close_app( RequestReason::User ); 
+    return ;
+   }
+  
+
+  if (key.key == 'c' && key.alt == true) {
+    refresh_screen();
+    return ;
+  }
+
+
+  return;
+}
+
+
+
+// Returns false to indicate quitting
+bool process_key_presses(const term::KeyStatus &key) {
+ 
+  key_press_only_once(key); 
+  
+
+
+   key_press_continous(key);
 
   return true;
 }
@@ -346,15 +177,14 @@ int main(int argv, char *argc[]) {
 
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
-  editor_globals.view.screen_rows = tc.height();
-  editor_globals.view.screen_cols = tc.width();
+  editor_globals.view.set_window(RowSize{tc.height()}, ColSize{ tc.width()});
 
   editor_globals.text.append_row("Hello text editor world"sv);
 
-  while (still_running) {
+  while (!editor_globals.quit_now) {
     tc.on_loop();
     if (tc.had_key_event()) {
-      still_running = process_key_presses(tc.get_key_event());
+       process_key_presses(tc.get_key_event());
     }
   }
 

@@ -100,6 +100,11 @@ add_executable(
    main.cpp
 )
 
+target_include_directories( CppEditor 
+   PRIVATE
+   ${ROOT_INCLUDE}
+) 
+
 target_link_libraries(CppEditor
    PUBLIC
    adam::terminal

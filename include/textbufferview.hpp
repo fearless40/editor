@@ -1,13 +1,15 @@
-#prama once
+#pragma once
+#include "textbuffer.hpp"
 
-struct TextBuffer;
+
+enum class RowSize : std::size_t {};
+enum class ColSize : std::size_t {}; 
+
 
 class TextBufferView {
-public:
   TextBuffer &view;
 
 
-private:
   std::size_t screen_rows{0};
   std::size_t screen_cols{0};
   long cursor_row{0};
@@ -19,6 +21,15 @@ private:
 
 
 public:
+
+  TextBufferView( TextBuffer & buffer ) : view(buffer) {};
+
+ constexpr void set_window( RowSize rows, ColSize cols ) { 
+   screen_rows = std::to_underlying(rows);
+   screen_cols = std::to_underlying(cols); 
+}
+   
+
   bool did_view_scroll_rows() const { return view_scrolled_rows;}
 
   bool did_view_scroll_cols() const { return view_scrolled_cols;}
@@ -30,6 +41,15 @@ public:
   constexpr term::Col ccol() const {
     return term::Col{(int)(cursor_col - col_offset) + 1};
   }
+
+  constexpr RowSize window_rows() const { return RowSize{screen_rows};}
+
+constexpr ColSize window_cols() const {return ColSize{screen_cols};}
+
+  constexpr TextBuffer buffer() const { return view; } 
+
+constexpr RowSize row_scroll() const { return RowSize{ row_offset};}
+constexpr ColSize col_scroll() const { return ColSize{ col_offset};}
 
   
 
@@ -105,4 +125,4 @@ private:
     do_scroll();
   }
 
-  }
+  };
