@@ -64,6 +64,12 @@ constexpr ColSize col_scroll() const { return ColSize{ col_offset};}
     validate_cursor_position();
   }
 
+  constexpr void line_home() { cursor_col = 0; validate_cursor_position(); };
+  constexpr void line_end() { 
+      cursor_col = view.line_length(cursor_row);
+      validate_cursor_position();
+}
+
   constexpr void left(unsigned int amt) {
     cursor_col -= (long)amt;
     if (cursor_col < 0) {

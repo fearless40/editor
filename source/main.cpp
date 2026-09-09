@@ -122,6 +122,18 @@ void key_press_only_once(const term::KeyStatus &key) {
     close_app( RequestReason::User ); 
     return ;
    }
+
+  if(key.key == std::to_underlying(term::KeyCodes::HOME)){ 
+      editor_globals.view.line_home();
+      refresh_screen();
+      return;
+}
+
+if( key.key == std::to_underlying(term::KeyCodes::END)) { 
+      editor_globals.view.line_end();
+      refresh_screen();
+      return;
+}
   
 
   if (key.key == 'c' && key.alt == true) {
