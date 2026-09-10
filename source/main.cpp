@@ -1,10 +1,10 @@
 // #include "version.hpp"
 #include "cursor.hpp"
-#include "textbufferview.hpp"
 #include "dynamiccommandbuffer.hpp"
-#include "textbuffer.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
+#include "textbuffer.hpp"
+#include "textbufferview.hpp"
 #include "types.hpp"
 #include <cstddef>
 #include <fstream>
@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-
 struct EditorGlobals {
   term::Row rows;
   term::Col cols;
@@ -23,29 +22,29 @@ struct EditorGlobals {
   term::Col cc;
   TextBuffer text;
   TextBufferView view{text};
-   bool quit_now {false}; 
+  bool quit_now{false};
 };
 
 EditorGlobals editor_globals;
 
-void render_view( term::CommandBuffer & buff, const TextBufferView & view ) { 
+void render_view(term::CommandBuffer &buff, const TextBufferView &view) {
 
-if (view.buffer().empty()) 
-   return; 
+  if (view.buffer().empty())
+    return;
 
-    const auto col_size = std::to_underlying(view.window_cols());
-    const auto row_size = std::to_underlying(view.window_rows());
-    for (const auto &[index, row] :
-         std::views::enumerate(view.buffer().rows) |
-             std::views::drop(std::to_underlying(view.row_scroll())) |
-             std::views::take(row_size)) {
+  const auto col_size = std::to_underlying(view.window_cols());
+  const auto row_size = std::to_underlying(view.window_rows());
+  for (const auto &[index, row] :
+       std::views::enumerate(view.buffer().rows) |
+           std::views::drop(std::to_underlying(view.row_scroll())) |
+           std::views::take(row_size)) {
 
-      if (std::to_underlying(view.col_scroll()) < row.length())
-        buff.add(row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
-      buff.add('\n');
-    }
-} 
-
+    if (std::to_underlying(view.col_scroll()) < row.length())
+      buff.add(
+          row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
+    buff.add('\n');
+  }
+}
 
 void refresh_screen() {
   auto line1 = "Welcome to my stupid editor"sv;
@@ -63,98 +62,88 @@ void refresh_screen() {
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-
-   render_view( buff, editor_globals.view );
+  render_view(buff, editor_globals.view);
 
   // term::cursor::position(
-  //     buff, term::Row{(int)editor_globals.view.window_rows() - 1}, term::Col{0});
+  //     buff, term::Row{(int)editor_globals.view.window_rows() - 1},
+  //     term::Col{0});
 
   // buff.add("Cursor  R:");
   // buff.add((unsigned int)view.cursor_row);
   // buff.add(" C:");
   // buff.add((unsigned int)view.cursor_col);
   //
-  term::cursor::position(buff, editor_globals.view.crow(),
-                         editor_globals.view.ccol());
+  term::cursor::position(buff, term::Row{(int)editor_globals.view.crow()},
+                         term::Col{(int)(editor_globals.view.ccol())});
   term::cursor::on(buff);
   buff.submit();
 }
 
-enum class RequestReason { 
-   User, 
-   AppError,
-   OSRequest
-};
+enum class RequestReason { User, AppError, OSRequest };
 
+void close_app(RequestReason) { editor_globals.quit_now = true; }
 
-void close_app( RequestReason ){
-   editor_globals.quit_now = true; 
+void key_press_continous(const term::KeyStatus &key) {
+  if (key.position != term::KeyPosition::pressed)
+    return;
+
+  if (key.key == std::to_underlying(term::KeyCodes::UP)) {
+    editor_globals.view.up(1);
+    // tem::cursor::up(1);
+  }
+  if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
+    // term::cursor::left(1);
+    editor_globals.view.left(1);
+  }
+  if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
+    editor_globals.view.down(1);
+    // term::cursor::down(1);
+  }
+  if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
+    // term::cursor::right(1);
+    editor_globals.view.right(1);
+  }
+  // Otherwise echo the key
+  refresh_screen();
 }
- 
-void key_press_continous( const term::KeyStatus &key) { 
-  if (key.position != term::KeyPosition::pressed) 
-      return ;
 
-    if (key.key == std::to_underlying(term::KeyCodes::UP)) {
-      editor_globals.view.up(1);
-      // term::cursor::up(1);
-    }
-    if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
-      // term::cursor::left(1);
-      editor_globals.view.left(1);
-    }
-    if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
-      editor_globals.view.down(1);
-      // term::cursor::down(1);
-    }
-    if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
-      // term::cursor::right(1);
-      editor_globals.view.right(1);
-    }
-    // Otherwise echo the key
-    refresh_screen();
+void key_press_only_once(const term::KeyStatus &key) {
+  if (key.position != term::KeyPosition::released)
+    return;
+
+  if (key.key == 'q' && key.alt == true) {
+    close_app(RequestReason::User);
+    return;
   }
 
-void key_press_only_once(const term::KeyStatus &key) { 
-   if (key.position != term::KeyPosition::released) return ; 
-   
-  if (key.key == 'q' && key.alt == true) {
-    close_app( RequestReason::User ); 
-    return ;
-   }
+  if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
+    editor_globals.view.line_home();
+    refresh_screen();
+    return;
+  }
 
-  if(key.key == std::to_underlying(term::KeyCodes::HOME)){ 
-      editor_globals.view.line_home();
-      refresh_screen();
-      return;
-}
-
-if( key.key == std::to_underlying(term::KeyCodes::END)) { 
-      editor_globals.view.line_end();
-      refresh_screen();
-      return;
-}
-  
+  if (key.key == std::to_underlying(term::KeyCodes::END)) {
+    editor_globals.view.line_end();
+    refresh_screen();
+    return;
+  }
 
   if (key.key == 'c' && key.alt == true) {
     refresh_screen();
-    return ;
+    return;
   }
 
+  editor_globals.view.insert_char_at_cursor(key.key);
 
   return;
 }
 
-
-
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key) {
- 
-  key_press_only_once(key); 
-  
 
+  key_press_only_once(key);
 
-   key_press_continous(key);
+  key_press_continous(key);
 
   return true;
 }
@@ -189,14 +178,14 @@ int main(int argv, char *argc[]) {
 
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
-  editor_globals.view.set_window(RowSize{tc.height()}, ColSize{ tc.width()});
+  editor_globals.view.set_window(RowSize{tc.height()}, ColSize{tc.width()});
 
   editor_globals.text.append_row("Hello text editor world"sv);
 
   while (!editor_globals.quit_now) {
     tc.on_loop();
     if (tc.had_key_event()) {
-       process_key_presses(tc.get_key_event());
+      process_key_presses(tc.get_key_event());
     }
   }
 

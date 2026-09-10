@@ -1,14 +1,11 @@
 #pragma once
 #include "textbuffer.hpp"
 
-
 enum class RowSize : std::size_t {};
-enum class ColSize : std::size_t {}; 
-
+enum class ColSize : std::size_t {};
 
 class TextBufferView {
   TextBuffer &view;
-
 
   std::size_t screen_rows{0};
   std::size_t screen_cols{0};
@@ -19,41 +16,37 @@ class TextBufferView {
   bool view_scrolled_rows{true};
   bool view_scrolled_cols{true};
 
-
 public:
+  TextBufferView(TextBuffer &buffer) : view(buffer) {};
 
-  TextBufferView( TextBuffer & buffer ) : view(buffer) {};
-
- constexpr void set_window( RowSize rows, ColSize cols ) { 
-   screen_rows = std::to_underlying(rows);
-   screen_cols = std::to_underlying(cols); 
-}
-   
-
-  bool did_view_scroll_rows() const { return view_scrolled_rows;}
-
-  bool did_view_scroll_cols() const { return view_scrolled_cols;}
-
-  constexpr term::Row crow() const {
-    return term::Row{(int)(cursor_row - row_offset)};
+  constexpr void set_window(RowSize rows, ColSize cols) {
+    screen_rows = std::to_underlying(rows);
+    screen_cols = std::to_underlying(cols);
   }
 
-  constexpr term::Col ccol() const {
-    return term::Col{(int)(cursor_col - col_offset) + 1};
+  bool did_view_scroll_rows() const { return view_scrolled_rows; }
+
+  bool did_view_scroll_cols() const { return view_scrolled_cols; }
+
+  constexpr long crow() const { return (long)(cursor_row - row_offset); }
+
+  constexpr long ccol() const { return (long)(cursor_col - col_offset) + 1; }
+
+  constexpr RowSize window_rows() const { return RowSize{screen_rows}; }
+
+  constexpr ColSize window_cols() const { return ColSize{screen_cols}; }
+
+  constexpr TextBuffer buffer() const { return view; }
+
+  constexpr RowSize row_scroll() const { return RowSize{row_offset}; }
+  constexpr ColSize col_scroll() const { return ColSize{col_offset}; }
+
+  constexpr void insert_char_at_cursor(char c) {
+    view.insert_char(cursor_row, cursor_col, c);
+    cursor_col++;
   }
 
-  constexpr RowSize window_rows() const { return RowSize{screen_rows};}
-
-constexpr ColSize window_cols() const {return ColSize{screen_cols};}
-
-  constexpr TextBuffer buffer() const { return view; } 
-
-constexpr RowSize row_scroll() const { return RowSize{ row_offset};}
-constexpr ColSize col_scroll() const { return ColSize{ col_offset};}
-
-  
-
-   constexpr void up(unsigned int amt) {
+  constexpr void up(unsigned int amt) {
     adjust_cursor_row(-(long)amt);
     validate_cursor_position();
   }
@@ -64,11 +57,14 @@ constexpr ColSize col_scroll() const { return ColSize{ col_offset};}
     validate_cursor_position();
   }
 
-  constexpr void line_home() { cursor_col = 0; validate_cursor_position(); };
-  constexpr void line_end() { 
-      cursor_col = view.line_length(cursor_row);
-      validate_cursor_position();
-}
+  constexpr void line_home() {
+    cursor_col = 0;
+    validate_cursor_position();
+  };
+  constexpr void line_end() {
+    cursor_col = view.line_length(cursor_row);
+    validate_cursor_position();
+  }
 
   constexpr void left(unsigned int amt) {
     cursor_col -= (long)amt;
@@ -93,13 +89,12 @@ constexpr ColSize col_scroll() const { return ColSize{ col_offset};}
     validate_cursor_position();
   }
 
-
 private:
   constexpr void adjust_cursor_row(long amount) {
     cursor_row =
         std::max(0l, std::min(cursor_row + amount, (long)view.number_rows()));
   }
-   constexpr void do_scroll() {
+  constexpr void do_scroll() {
 
     if (cursor_row >= row_offset + screen_rows) {
       row_offset = cursor_row - screen_rows + 1;
@@ -130,5 +125,4 @@ private:
 
     do_scroll();
   }
-
-  };
+};
