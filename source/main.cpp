@@ -64,17 +64,17 @@ void refresh_screen() {
 
   render_view(buff, editor_globals.view);
 
-  // term::cursor::position(
-  //     buff, term::Row{(int)editor_globals.view.window_rows() - 1},
-  //     term::Col{0});
+  term::cursor::position(buff,
+                         term::Row{(int)editor_globals.view.window_rows() - 1},
+                         term::Col{0});
 
-  // buff.add("Cursor  R:");
-  // buff.add((unsigned int)view.cursor_row);
-  // buff.add(" C:");
-  // buff.add((unsigned int)view.cursor_col);
-  //
-  term::cursor::position(buff, term::Row{(int)editor_globals.view.crow()},
-                         term::Col{(int)(editor_globals.view.ccol())});
+  buff.add("Cursor  R:");
+  buff.add((unsigned int)editor_globals.view.crow());
+  buff.add(" C:");
+  buff.add((unsigned int)editor_globals.view.ccol());
+
+  term::cursor::position(buff, term::Row{(int)editor_globals.view.crow() + 1},
+                         term::Col{(int)(editor_globals.view.ccol()) + 1});
   term::cursor::on(buff);
   buff.submit();
 }
@@ -83,69 +83,93 @@ enum class RequestReason { User, AppError, OSRequest };
 
 void close_app(RequestReason) { editor_globals.quit_now = true; }
 
-void key_press_continous(const term::KeyStatus &key) {
+bool key_press_continous(const term::KeyStatus &key) {
   if (key.position != term::KeyPosition::pressed)
-    return;
+    return false;
 
   if (key.key == std::to_underlying(term::KeyCodes::UP)) {
     editor_globals.view.up(1);
+    return true;
     // tem::cursor::up(1);
   }
   if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
     // term::cursor::left(1);
     editor_globals.view.left(1);
+    return true;
   }
   if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
     editor_globals.view.down(1);
+    return true;
     // term::cursor::down(1);
   }
   if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
     // term::cursor::right(1);
     editor_globals.view.right(1);
+    return true;
   }
-  // Otherwise echo the key
-  refresh_screen();
+
+  if (key.key == std::to_underlying(term::KeyCodes::DELETE)) {
+    editor_globals.view.delete_char_to_right();
+    return true;
+  }
+
+  if (key.key == std::to_underlying(term::KeyCodes::BACKSPACE)) {
+    editor_globals.view.delete_char_to_left();
+    return true;
+  }
+
+  if (key.key == std::to_underlying(term::KeyCodes::ENTER)) {
+    editor_globals.view.insert_enter();
+    return true;
+  }
+  return false;
 }
 
-void key_press_only_once(const term::KeyStatus &key) {
+bool key_press_only_once(const term::KeyStatus &key) {
   if (key.position != term::KeyPosition::released)
-    return;
+    return false;
 
   if (key.key == 'q' && key.alt == true) {
     close_app(RequestReason::User);
-    return;
+    return true;
   }
 
   if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
     editor_globals.view.line_home();
     refresh_screen();
-    return;
+    return true;
   }
 
   if (key.key == std::to_underlying(term::KeyCodes::END)) {
     editor_globals.view.line_end();
     refresh_screen();
-    return;
+    return true;
   }
 
   if (key.key == 'c' && key.alt == true) {
     refresh_screen();
-    return;
+    return true;
   }
 
-  editor_globals.view.insert_char_at_cursor(key.key);
-
-  return;
+  return false;
 }
 
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key) {
 
-  key_press_only_once(key);
+  if (key_press_only_once(key))
+    return true;
 
-  key_press_continous(key);
+  if (key_press_continous(key))
+    return true;
 
-  return true;
+  if (key.key >= 32 and key.key <= 126 and
+      key.position == term::KeyPosition::released) {
+    editor_globals.view.insert_char_at_cursor(key.key);
+    return true;
+  }
+
+  return false;
 }
 
 bool open_file(const char *filename) {
@@ -185,7 +209,8 @@ int main(int argv, char *argc[]) {
   while (!editor_globals.quit_now) {
     tc.on_loop();
     if (tc.had_key_event()) {
-      process_key_presses(tc.get_key_event());
+      if (process_key_presses(tc.get_key_event()))
+        refresh_screen();
     }
   }
 

@@ -30,7 +30,7 @@ public:
 
   constexpr long crow() const { return (long)(cursor_row - row_offset); }
 
-  constexpr long ccol() const { return (long)(cursor_col - col_offset) + 1; }
+  constexpr long ccol() const { return (long)(cursor_col - col_offset); }
 
   constexpr RowSize window_rows() const { return RowSize{screen_rows}; }
 
@@ -44,6 +44,56 @@ public:
   constexpr void insert_char_at_cursor(char c) {
     view.insert_char(cursor_row, cursor_col, c);
     cursor_col++;
+  }
+
+  constexpr void insert_enter() {
+    if (cursor_col == view.line_length(cursor_row)) {
+      view.append_row("");
+    } else {
+      auto str_o = view.get_row(cursor_row);
+      if (!str_o)
+        return;
+
+      auto subview = str_o.value().subview(cursor_col);
+      view.insert_row(subview, cursor_row + 1);
+      view.modify_row(str_o.value().subview(0, cursor_col - 1), cursor_row);
+      adjust_cursor_row(1);
+    }
+  }
+
+  constexpr void delete_char_to_right() {
+
+    if (cursor_col == view.line_length(cursor_row) and
+        cursor_row != view.number_rows()) {
+      auto str = view.get_row(cursor_row + 1);
+      if (!str)
+        return;
+      auto end_col = view.line_length(cursor_row);
+      view.append_row(str.value(), cursor_row);
+      view.remove_row(cursor_row + 1);
+
+      cursor_col = end_col;
+    } else
+      view.remove_char(cursor_row, cursor_col);
+
+    validate_cursor_position();
+  }
+
+  constexpr void delete_char_to_left() {
+    if (cursor_col == 0) {
+      auto str = view.get_row(cursor_row);
+      if (!str)
+        return;
+      auto end_col = view.line_length(cursor_row - 1);
+      view.append_row(str.value(), cursor_row - 1);
+      view.remove_row(cursor_row);
+      adjust_cursor_row(-1);
+      cursor_col = end_col;
+    } else {
+      view.remove_char(cursor_row, cursor_col - 1);
+      cursor_col--;
+    }
+    validate_cursor_position();
   }
 
   constexpr void up(unsigned int amt) {
@@ -119,7 +169,7 @@ private:
     if (cursor_col < 0)
       cursor_col = 0;
 
-    if (auto len = view.line_length(cursor_row); cursor_col > len) {
+    if (auto len = view.line_length(cursor_row); cursor_col >= len) {
       cursor_col = len;
     }
 
