@@ -46,16 +46,12 @@ void render_view(term::CommandBuffer &buff, const TextBufferView &view) {
   }
 }
 
-void refresh_screen() {
-  auto line1 = "Welcome to my stupid editor"sv;
-  auto line2 = "by"sv;
-  auto line3 = "Adam Spivack"sv;
-  auto line4 = "Version 0.0"sv;
+int center_left(std::size_t length) {
+  auto col = std::to_underlying(editor_globals.cols);
+  return (col - length) / 2;
+}
 
-  auto left_padding = [&](std::size_t length) -> auto {
-    auto col = std::to_underlying(editor_globals.cols);
-    return (col - length) / 2;
-  };
+void refresh_screen() {
 
   term::DynamicCommandBuffer buff;
   term::cursor::off(buff);
@@ -64,9 +60,8 @@ void refresh_screen() {
 
   render_view(buff, editor_globals.view);
 
-  term::cursor::position(buff,
-                         term::Row{(int)editor_globals.view.window_rows() - 1},
-                         term::Col{0});
+  term::cursor::position(
+      buff, term::Row{(int)editor_globals.view.window_rows()}, term::Col{1});
 
   buff.add("Cursor  R:");
   buff.add((unsigned int)editor_globals.view.crow());
@@ -202,9 +197,11 @@ int main(int argv, char *argc[]) {
 
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
-  editor_globals.view.set_window(RowSize{tc.height()}, ColSize{tc.width()});
+  editor_globals.view.set_window(RowSize{tc.height() - 1}, ColSize{tc.width()});
 
   editor_globals.text.append_row("Hello text editor world"sv);
+
+  refresh_screen();
 
   while (!editor_globals.quit_now) {
     tc.on_loop();

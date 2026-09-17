@@ -1,5 +1,7 @@
 #pragma once
 #include "textbuffer.hpp"
+#include <cstddef>
+#include <utility>
 
 enum class RowSize : std::size_t {};
 enum class ColSize : std::size_t {};
@@ -28,9 +30,9 @@ public:
 
   bool did_view_scroll_cols() const { return view_scrolled_cols; }
 
-  constexpr long crow() const { return (long)(cursor_row - row_offset); }
+  constexpr long crow() const { return (cursor_row - (long)row_offset); }
 
-  constexpr long ccol() const { return (long)(cursor_col - col_offset); }
+  constexpr long ccol() const { return (cursor_col - (long)col_offset); }
 
   constexpr RowSize window_rows() const { return RowSize{screen_rows}; }
 
@@ -47,18 +49,23 @@ public:
   }
 
   constexpr void insert_enter() {
-    if (cursor_col == view.line_length(cursor_row)) {
-      view.append_row("");
-    } else {
-      auto str_o = view.get_row(cursor_row);
-      if (!str_o)
-        return;
+    auto str_o = view.get_row(cursor_row);
+    if (!str_o)
+      return;
 
-      auto subview = str_o.value().subview(cursor_col);
+    auto &value = str_o.value();
+    if (value.length() == 0) {
+      view.insert_row("", cursor_row + 1);
+    } else {
+
+      const auto end_post = std::min(value.length(), (std::size_t)cursor_col);
+
+      auto subview = str_o.value().subview(end_post);
       view.insert_row(subview, cursor_row + 1);
-      view.modify_row(str_o.value().subview(0, cursor_col - 1), cursor_row);
-      adjust_cursor_row(1);
+      view.modify_row(value.subview(0, end_post), cursor_row);
     }
+    adjust_cursor_row(1);
+    validate_cursor_position();
   }
 
   constexpr void delete_char_to_right() {
@@ -68,11 +75,16 @@ public:
       auto str = view.get_row(cursor_row + 1);
       if (!str)
         return;
-      auto end_col = view.line_length(cursor_row);
-      view.append_row(str.value(), cursor_row);
-      view.remove_row(cursor_row + 1);
+      // auto end_col = view.line_length(cursor_row);
 
-      cursor_col = end_col;
+      if (view.line_length(cursor_row) == 0) {
+        view.remove_row(cursor_row);
+      } else {
+        view.append_row(str.value(), cursor_row);
+        view.remove_row(cursor_row + 1);
+      }
+
+      // cursor_col = end_col;
     } else
       view.remove_char(cursor_row, cursor_col);
 
