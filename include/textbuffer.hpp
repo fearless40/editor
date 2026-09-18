@@ -24,7 +24,7 @@ struct TextBuffer {
   void remove_row(std::size_t row) {
     if (!is_valid_row(row))
       return;
-    std::erase(rows, rows[row]);
+    rows.erase(rows.begin() + row);
   }
 
   void insert_row(std::string_view data, std::size_t location) {
@@ -49,7 +49,10 @@ struct TextBuffer {
     if (!is_valid_row(row))
       return;
     auto &string = rows[row];
-    string.append(data);
+    if (string.empty())
+      string = data;
+    else
+      string.append(data);
   }
   const std::optional<std::string_view> get_row(std::size_t row) const {
     if (!is_valid_row(row))

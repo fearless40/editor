@@ -1,5 +1,6 @@
 #pragma once
 #include "textbuffer.hpp"
+#include <algorithm>
 #include <cstddef>
 #include <utility>
 
@@ -94,15 +95,15 @@ public:
 
       auto &string = str_o.value();
 
-      if (string.length() == 0) {
-        view.remove_row(cursor_row);
-        adjust_cursor_row(-1);
-      } else {
-        cursor_col = view.line_length(cursor_row - 1);
-        view.append_row(string, cursor_row - 1);
-        view.remove_row(cursor_row);
-        adjust_cursor_row(-1);
-      }
+      // if (string.length() == 0) {
+      //   view.remove_row(cursor_row);
+      //   adjust_cursor_row(-1);
+      // } else {
+      cursor_col = view.line_length(cursor_row - 1);
+      view.append_row(string, cursor_row - 1);
+      view.remove_row(cursor_row);
+      adjust_cursor_row(-1);
+      // }
     }
     validate_cursor_position();
   }
