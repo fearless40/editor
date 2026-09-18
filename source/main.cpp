@@ -60,13 +60,19 @@ void refresh_screen() {
 
   render_view(buff, editor_globals.view);
 
-  term::cursor::position(
-      buff, term::Row{(int)editor_globals.view.window_rows()}, term::Col{1});
+  term::cursor::position(buff,
+                         term::Row{(int)editor_globals.view.window_rows() + 1},
+                         term::Col{1});
 
   buff.add("Cursor  R:");
-  buff.add((unsigned int)editor_globals.view.crow());
+  buff.add((unsigned int)editor_globals.view.row());
   buff.add(" C:");
-  buff.add((unsigned int)editor_globals.view.ccol());
+  buff.add((unsigned int)editor_globals.view.col());
+  buff.add(" T:");
+  buff.add((unsigned int)editor_globals.text.number_rows());
+  buff.add(" L:");
+  buff.add(
+      (unsigned int)editor_globals.text.line_length(editor_globals.view.row()));
 
   term::cursor::position(buff, term::Row{(int)editor_globals.view.crow() + 1},
                          term::Col{(int)(editor_globals.view.ccol()) + 1});
@@ -175,6 +181,9 @@ bool open_file(const char *filename) {
   std::string line;
   while (!f.eof()) {
     std::getline(f, line);
+    if (line.ends_with('\n') || line.ends_with('\r')) {
+      line.resize(line.size() - 1);
+    }
     editor_globals.text.rows.emplace_back(std::move(line));
   };
   return true;
@@ -197,9 +206,10 @@ int main(int argv, char *argc[]) {
 
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
-  editor_globals.view.set_window(RowSize{tc.height() - 1}, ColSize{tc.width()});
+  editor_globals.view.set_window(RowSize{(std::size_t)tc.height() - 1},
+                                 ColSize{(std::size_t)tc.width()});
 
-  editor_globals.text.append_row("Hello text editor world"sv);
+  // editor_globals.text.append_row("Hello text editor world"sv);
 
   refresh_screen();
 

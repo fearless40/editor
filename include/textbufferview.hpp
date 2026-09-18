@@ -30,6 +30,10 @@ public:
 
   bool did_view_scroll_cols() const { return view_scrolled_cols; }
 
+  constexpr long row() const { return cursor_row; }
+
+  constexpr long col() const { return cursor_col; }
+
   constexpr long crow() const { return (cursor_row - (long)row_offset); }
 
   constexpr long ccol() const { return (cursor_col - (long)col_offset); }
@@ -69,41 +73,36 @@ public:
   }
 
   constexpr void delete_char_to_right() {
-
-    if (cursor_col == view.line_length(cursor_row) and
-        cursor_row != view.number_rows()) {
-      auto str = view.get_row(cursor_row + 1);
-      if (!str)
-        return;
-      // auto end_col = view.line_length(cursor_row);
-
-      if (view.line_length(cursor_row) == 0) {
-        view.remove_row(cursor_row);
-      } else {
-        view.append_row(str.value(), cursor_row);
-        view.remove_row(cursor_row + 1);
-      }
-
-      // cursor_col = end_col;
-    } else
-      view.remove_char(cursor_row, cursor_col);
-
-    validate_cursor_position();
+    right(1);
+    delete_char_to_left();
   }
 
   constexpr void delete_char_to_left() {
-    if (cursor_col == 0) {
-      auto str = view.get_row(cursor_row);
-      if (!str)
-        return;
-      auto end_col = view.line_length(cursor_row - 1);
-      view.append_row(str.value(), cursor_row - 1);
-      view.remove_row(cursor_row);
-      adjust_cursor_row(-1);
-      cursor_col = end_col;
-    } else {
+    if (cursor_col == 0 and cursor_row == 0)
+      return;
+    // if (cursor_row == view.number_rows())
+    // return;
+
+    if (cursor_col > 0) {
       view.remove_char(cursor_row, cursor_col - 1);
       cursor_col--;
+    } else {
+
+      auto str_o = view.get_row(cursor_row);
+      if (!str_o)
+        return;
+
+      auto &string = str_o.value();
+
+      if (string.length() == 0) {
+        view.remove_row(cursor_row);
+        adjust_cursor_row(-1);
+      } else {
+        cursor_col = view.line_length(cursor_row - 1);
+        view.append_row(string, cursor_row - 1);
+        view.remove_row(cursor_row);
+        adjust_cursor_row(-1);
+      }
     }
     validate_cursor_position();
   }
@@ -154,7 +153,7 @@ public:
 private:
   constexpr void adjust_cursor_row(long amount) {
     cursor_row =
-        std::max(0l, std::min(cursor_row + amount, (long)view.number_rows()));
+        std::clamp(amount + cursor_row, 0l, (long)view.number_rows() - 1);
   }
   constexpr void do_scroll() {
 
@@ -178,12 +177,7 @@ private:
   }
 
   constexpr void validate_cursor_position() {
-    if (cursor_col < 0)
-      cursor_col = 0;
-
-    if (auto len = view.line_length(cursor_row); cursor_col >= len) {
-      cursor_col = len;
-    }
+    cursor_col = std::clamp(cursor_col, 0l, (long)view.line_length(cursor_row));
 
     do_scroll();
   }

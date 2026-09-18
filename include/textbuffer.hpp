@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -9,7 +8,7 @@
 
 struct TextBuffer {
   std::vector<std::string> rows;
-  std::size_t number_rows() const { return rows.size(); }
+  std::size_t number_rows() const { return rows.size() - 1; }
   constexpr bool empty() const { return rows.empty(); }
 
   constexpr bool is_valid_row(std::size_t row) const {
@@ -39,6 +38,7 @@ struct TextBuffer {
 
   void modify_row(std::string_view data, std::size_t row) {
     if (!is_valid_row(row))
+
       return;
     rows[row] = std::string{data};
   }
