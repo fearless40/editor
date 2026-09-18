@@ -8,6 +8,7 @@
 #include "types.hpp"
 #include <cstddef>
 #include <fstream>
+#include <functional>
 #include <ios>
 #include <iostream>
 #include <ranges>
@@ -25,7 +26,46 @@ struct EditorGlobals {
   bool quit_now{false};
 };
 
+struct KeyMapping {
+  EditorGlobals &globals;
+  enum struct EventContinue { consume, resume };
+  enum struct Repeatablitiy { single, repeat };
+
+  using keyFN = std::function_ref<EventContinue(const term::KeyStatus &key,
+                                                EditorGlobals &global)>;
+
+  struct Mapping {
+    int keyCode;
+    Repeatablitiy status;
+    keyFN fn;
+  };
+
+  std::vector<Mapping> keymap;
+
+  bool key_event(const term::KeyStatus &key) const {
+    for (auto &m : keymap) {
+      if (m.keyCode == key.key) {
+        if (key.position == term::KeyPosition::pressed and
+            m.status == Repeatablitiy::repeat) {
+          if (m.fn(key, globals) == EventContinue::consume)
+            return true;
+        } else if (key.position == term::KeyPosition::released and
+                   m.status == Repeatablitiy::single) {
+          if (m.fn(key, globals) == EventContinue::consume)
+            return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  void add_key(term::KeyCodes code, Repeatablitiy repeat, keyFN &&keyfn) {
+    keymap.emplace_back(std::to_underlying(code), repeat, keyfn);
+  }
+};
+
 EditorGlobals editor_globals;
+KeyMapping key_map{editor_globals};
 
 void render_view(term::CommandBuffer &buff, const TextBufferView &view) {
 
@@ -82,7 +122,11 @@ void refresh_screen() {
 
 enum class RequestReason { User, AppError, OSRequest };
 
-void close_app(RequestReason) { editor_globals.quit_now = true; }
+void close_app(RequestReason) {
+  editor_globals.quit_now = true;
+}
+
+;
 
 bool key_press_continous(const term::KeyStatus &key) {
   if (key.position != term::KeyPosition::pressed)
@@ -135,11 +179,11 @@ bool key_press_only_once(const term::KeyStatus &key) {
     return true;
   }
 
-  if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
-    editor_globals.view.line_home();
-    refresh_screen();
-    return true;
-  }
+  // if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
+  //   editor_globals.view.line_home();
+  //   refresh_screen();
+  //   return true;
+  // }
 
   if (key.key == std::to_underlying(term::KeyCodes::END)) {
     editor_globals.view.line_end();
@@ -159,6 +203,9 @@ bool key_press_only_once(const term::KeyStatus &key) {
 bool process_key_presses(const term::KeyStatus &key) {
 
   if (key_press_only_once(key))
+    return true;
+
+  if (key_map.key_event(key))
     return true;
 
   if (key_press_continous(key))
@@ -208,6 +255,12 @@ int main(int argv, char *argc[]) {
   editor_globals.cols = term::Col{tc.width()};
   editor_globals.view.set_window(RowSize{(std::size_t)tc.height() - 1},
                                  ColSize{(std::size_t)tc.width()});
+
+  key_map.add_key(term::KeyCodes::HOME, KeyMapping::Repeatablitiy::single,
+                  [](const term::KeyStatus &key, EditorGlobals &global) {
+                    global.view.line_home();
+                    return KeyMapping::EventContinue::consume;
+                  });
 
   // editor_globals.text.append_row("Hello text editor world"sv);
 

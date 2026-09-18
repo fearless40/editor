@@ -49,10 +49,7 @@ struct TextBuffer {
     if (!is_valid_row(row))
       return;
     auto &string = rows[row];
-    if (string.empty())
-      string = data;
-    else
-      string.append(data);
+    string.append(data);
   }
   const std::optional<std::string_view> get_row(std::size_t row) const {
     if (!is_valid_row(row))
