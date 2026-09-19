@@ -228,12 +228,12 @@ bool open_file(const char *filename) {
   std::string line;
   while (!f.eof()) {
     std::getline(f, line);
-    if (line.ends_with('\n') || line.ends_with('\r')) {
-      line.resize(line.size() - 1);
-    }
-    editor_globals.text.rows.emplace_back(std::move(line));
-  };
-  return true;
+    if (line.ends_with('\n') || line.ends_withorsize() - 1)
+      ;
+  }
+  editor_globals.text.rows.emplace_back(std::move(line));
+};
+return true;
 }
 
 int main(int argv, char *argc[]) {
@@ -269,7 +269,8 @@ int main(int argv, char *argc[]) {
   while (!editor_globals.quit_now) {
     tc.on_loop();
     if (tc.had_key_event()) {
-      if (process_key_presses(tc.get_key_event()))
+      if (process_key_presses(tc.get_key_event()) or
+          key_map.key_event(tc.get_key_event()))
         refresh_screen();
     }
   }
