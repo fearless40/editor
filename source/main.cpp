@@ -1,12 +1,14 @@
 // #include "version.hpp"
 #include "cursor.hpp"
 #include "dynamiccommandbuffer.hpp"
+#include "enum.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
 #include "textbuffer.hpp"
 #include "textbufferview.hpp"
 #include "types.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <functional>
 #include <ios>
@@ -26,7 +28,20 @@ struct EditorGlobals {
   bool quit_now{false};
 };
 
-struct KeyMapping {
+enum class SpecialKeys : std::uint8_t {
+  alt = 0b1,
+  ctrl = 0b10,
+  shift = 0b100,
+  super = 0b1000,
+  left = 0b10000,
+  right = 0b100000
+};
+
+MAKE_ENUM_FLAG(SpecialKeys)
+
+class KeyMapping {
+public:
+  KeyMapping(EditorGlobals &gl) : globals(gl) {}
   EditorGlobals &globals;
   enum struct EventContinue { consume, resume };
   enum struct Repeatablitiy { single, repeat };
@@ -34,33 +49,81 @@ struct KeyMapping {
   using keyFN = std::function_ref<EventContinue(const term::KeyStatus &key,
                                                 EditorGlobals &global)>;
 
+private:
   struct Mapping {
     int keyCode;
     Repeatablitiy status;
     keyFN fn;
   };
 
-  std::vector<Mapping> keymap;
+  struct key_map {
+    unsigned int key;
+    unsigned int index;
+  };
 
+  constexpr unsigned int make_key_integer(int keycode,
+                                          SpecialKeys flags) const {
+    return (keycode & 0x00FFFFFF) | (std::to_underlying(flags) & 0xFF);
+  }
+
+  constexpr SpecialKeys from_key_status(term::KeyStatus status) const {
+    using util::flags::operator|;
+    SpecialKeys k{0};
+    if (status.alt)
+      k = k | SpecialKeys::alt;
+    if (status.ctl)
+      k = k | SpecialKeys::ctrl;
+    if (status.shift)
+      k = k | SpecialKeys::shift;
+    if (status.super)
+      k = k | SpecialKeys::super;
+    return k;
+  }
+
+  std::vector<key_map> continous_map;
+  std::vector<key_map> release_map;
+  std::vector<keyFN> functions;
+
+  unsigned int create_fn_index(keyFN &&fn) {
+    functions.emplace_back(std::forward<keyFN>(fn));
+    auto last = functions.end() - 1;
+    return static_cast<unsigned int>(std::distance(functions.begin(), last));
+  }
+
+public:
   bool key_event(const term::KeyStatus &key) const {
-    for (auto &m : keymap) {
-      if (m.keyCode == key.key) {
-        if (key.position == term::KeyPosition::pressed and
-            m.status == Repeatablitiy::repeat) {
-          if (m.fn(key, globals) == EventContinue::consume)
-            return true;
-        } else if (key.position == term::KeyPosition::released and
-                   m.status == Repeatablitiy::single) {
-          if (m.fn(key, globals) == EventContinue::consume)
-            return true;
-        }
+    auto keyID = make_key_integer(key.key, from_key_status(key));
+    auto &vec = key.position == term::KeyPosition::pressed ? continous_map
+                                                           : release_map;
+    for (const auto &[index, map] : std::views::enumerate(vec)) {
+      if (map.key == keyID) {
+        if (functions[map.index](key, globals) == EventContinue::consume)
+          return true;
       }
     }
+
+    // for (auto &m : keymap) {
+    //     if (m.keyCode == key.key) {
+    //       if (key.position == term::KeyPosition::pressed and
+    //           m.status == Repeatablitiy::repeat) {
+    //         if (m.fn(key, globals) == EventContinue::consume)
+    //           return true;
+    //       } else if (key.position == term::KeyPosition::released and
+    //                  m.status == Repeatablitiy::single) {
+    //         if (m.fn(key, globals) == EventContinue::consume)
+    //           return true;
+    //       }
+    //     }
+    // }
     return false;
   }
 
-  void add_key(term::KeyCodes code, Repeatablitiy repeat, keyFN &&keyfn) {
-    keymap.emplace_back(std::to_underlying(code), repeat, keyfn);
+  void add_key(term::KeyCodes code, keyFN &&keyfn, SpecialKeys flags,
+               Repeatablitiy repeat = Repeatablitiy::single) {
+    auto fn_index = create_fn_index(std::forward<keyFN>(keyfn));
+    auto &vec = repeat == Repeatablitiy::repeat ? continous_map : release_map;
+    vec.emplace_back(make_key_integer(std::to_underlying(code), flags),
+                     fn_index);
   }
 };
 
@@ -228,12 +291,12 @@ bool open_file(const char *filename) {
   std::string line;
   while (!f.eof()) {
     std::getline(f, line);
-    if (line.ends_with('\n') || line.ends_withorsize() - 1)
+    if (line.ends_with('\n'))
       ;
   }
   editor_globals.text.rows.emplace_back(std::move(line));
-};
-return true;
+
+  return true;
 }
 
 int main(int argv, char *argc[]) {
@@ -256,11 +319,13 @@ int main(int argv, char *argc[]) {
   editor_globals.view.set_window(RowSize{(std::size_t)tc.height() - 1},
                                  ColSize{(std::size_t)tc.width()});
 
-  key_map.add_key(term::KeyCodes::HOME, KeyMapping::Repeatablitiy::single,
-                  [](const term::KeyStatus &key, EditorGlobals &global) {
-                    global.view.line_home();
-                    return KeyMapping::EventContinue::consume;
-                  });
+  key_map.add_key(
+      term::KeyCodes::HOME,
+      [](const term::KeyStatus &key, EditorGlobals &global) {
+        global.view.line_home();
+        return KeyMapping::EventContinue::consume;
+      },
+      SpecialKeys{0}, KeyMapping::Repeatablitiy::single);
 
   // editor_globals.text.append_row("Hello text editor world"sv);
 

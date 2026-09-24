@@ -19,6 +19,7 @@ target_sources( adam.util
         ${ROOT_DIR}/include/util/soa.hpp
         ${ROOT_DIR}/include/util/soamemorylayout.hpp
         ${ROOT_DIR}/include/util/stackhelpers.hpp
+        ${ROOT_DIR}/include/util/enum.hpp
 )
 
 
@@ -100,10 +101,10 @@ add_executable(
    main.cpp
 )
 
-target_include_directories( CppEditor 
+target_include_directories( CppEditor
    PRIVATE
    ${ROOT_INCLUDE}
-) 
+)
 
 target_link_libraries(CppEditor
    PUBLIC
