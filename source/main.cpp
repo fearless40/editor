@@ -63,7 +63,7 @@ private:
 
   constexpr unsigned int make_key_integer(int keycode,
                                           SpecialKeys flags) const {
-    return (keycode & 0x00FFFFFF) | (std::to_underlying(flags) & 0xFF);
+    return (keycode & 0x00FFFFFF) | ((std::to_underlying(flags) & 0xFF) << 24);
   }
 
   constexpr SpecialKeys from_key_status(term::KeyStatus status) const {
@@ -84,17 +84,30 @@ private:
   std::vector<key_map> release_map;
   std::vector<keyFN> functions;
 
+  template <typename Self>
+  constexpr auto &select_map(this Self &&self, term::KeyPosition pos) {
+    return pos == term::KeyPosition::pressed
+               ? std::forward<Self>(self).continous_map
+               : std::forward<Self>(self).release_map;
+  }
+  template <typename Self>
+  constexpr auto &select_map(this Self &&self, Repeatablitiy pos) {
+    return pos == Repeatablitiy::repeat ? std::forward<Self>(self).continous_map
+                                        : std::forward<Self>(self).release_map;
+  }
+
   unsigned int create_fn_index(keyFN &&fn) {
     functions.emplace_back(std::forward<keyFN>(fn));
     auto last = functions.end() - 1;
+    if (last == functions.begin())
+      return 0;
     return static_cast<unsigned int>(std::distance(functions.begin(), last));
   }
 
 public:
   bool key_event(const term::KeyStatus &key) const {
     auto keyID = make_key_integer(key.key, from_key_status(key));
-    auto &vec = key.position == term::KeyPosition::pressed ? continous_map
-                                                           : release_map;
+    auto &vec = select_map(key.position);
     for (const auto &[index, map] : std::views::enumerate(vec)) {
       if (map.key == keyID) {
         if (functions[map.index](key, globals) == EventContinue::consume)
@@ -102,16 +115,39 @@ public:
       }
     }
 
-    // for (auto &m : keymap) {
-    //     if (m.keyCode == key.key) {
-    //       if (key.position == term::KeyPosition::pressed and
-    //           m.status == Repeatablitiy::repeat) {
-    //         if (m.fn(key, globals) == EventContinue::consume)
-    //           return true;
-    //       } else if (key.position == term::KeyPosition::released and
+    // for (auto &m :
+    // keymap) {
+    //     if (m.keyCode
+    //     == key.key) {
+    //       if
+    //       (key.position
+    //       ==
+    //       term::KeyPosition::pressed
+    //       and
+    //           m.status
+    //           ==
+    //           Repeatablitiy::repeat)
+    //           {
+    //         if
+    //         (m.fn(key,
+    //         globals)
+    //         ==
+    //         EventContinue::consume)
+    //           return
+    //           true;
+    //       } else if
+    //       (key.position
+    //       ==
+    //       term::KeyPosition::released
+    //       and
     //                  m.status == Repeatablitiy::single) {
-    //         if (m.fn(key, globals) == EventContinue::consume)
-    //           return true;
+    //         if
+    //         (m.fn(key,
+    //         globals)
+    //         ==
+    //         EventContinue::consume)
+    //           return
+    //           true;
     //       }
     //     }
     // }
@@ -121,7 +157,7 @@ public:
   void add_key(term::KeyCodes code, keyFN &&keyfn, SpecialKeys flags,
                Repeatablitiy repeat = Repeatablitiy::single) {
     auto fn_index = create_fn_index(std::forward<keyFN>(keyfn));
-    auto &vec = repeat == Repeatablitiy::repeat ? continous_map : release_map;
+    auto &vec = select_map(repeat);
     vec.emplace_back(make_key_integer(std::to_underlying(code), flags),
                      fn_index);
   }
@@ -291,10 +327,9 @@ bool open_file(const char *filename) {
   std::string line;
   while (!f.eof()) {
     std::getline(f, line);
-    if (line.ends_with('\n'))
-      ;
+    editor_globals.text.rows.emplace_back(std::move(line));
   }
-  editor_globals.text.rows.emplace_back(std::move(line));
+  // editor_globals.text.rows.emplace_back(std::move(line));
 
   return true;
 }
@@ -308,14 +343,15 @@ int main(int argv, char *argc[]) {
   // compositor_test();
 
   term::TermControl tc{};
-  bool still_running = true;
 
   if (argv >= 2) {
-    open_file(argc[1]);
+    if (!open_file(argc[1]))
+      return -1;
   }
 
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
+  editor_globals.view.set_view(editor_globals.text);
   editor_globals.view.set_window(RowSize{(std::size_t)tc.height() - 1},
                                  ColSize{(std::size_t)tc.width()});
 
@@ -327,15 +363,13 @@ int main(int argv, char *argc[]) {
       },
       SpecialKeys{0}, KeyMapping::Repeatablitiy::single);
 
-  // editor_globals.text.append_row("Hello text editor world"sv);
-
   refresh_screen();
 
   while (!editor_globals.quit_now) {
     tc.on_loop();
     if (tc.had_key_event()) {
-      if (process_key_presses(tc.get_key_event()) or
-          key_map.key_event(tc.get_key_event()))
+      auto key_evt = tc.get_key_event();
+      if (process_key_presses(key_evt))
         refresh_screen();
     }
   }

@@ -58,7 +58,7 @@ struct TextBuffer {
   }
 
   void insert_char(std::size_t row, std::size_t col, char value) {
-    if (number_rows() == 0) {
+    if (empty() || number_rows() == 0) {
       append_row(std::string_view{&value, 1});
       return;
     }

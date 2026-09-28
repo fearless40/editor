@@ -22,6 +22,8 @@ class TextBufferView {
 public:
   TextBufferView(TextBuffer &buffer) : view(buffer) {};
 
+  void set_view(TextBuffer &buffer) { view = buffer; }
+
   constexpr void set_window(RowSize rows, ColSize cols) {
     screen_rows = std::to_underlying(rows);
     screen_cols = std::to_underlying(cols);
@@ -153,8 +155,14 @@ public:
 
 private:
   constexpr void adjust_cursor_row(long amount) {
-    cursor_row =
-        std::clamp(amount + cursor_row, 0l, (long)view.number_rows() - 1);
+
+    if (view.empty()) {
+      cursor_row = 0;
+      return;
+    }
+    long length = view.number_rows() - 1;
+
+    cursor_row = std::clamp(amount + cursor_row, 0l, length);
   }
   constexpr void do_scroll() {
 
