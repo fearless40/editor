@@ -2,6 +2,7 @@
 #include "textbuffer.hpp"
 #include <algorithm>
 #include <cstddef>
+#include <string_view>
 #include <utility>
 
 enum class RowSize : std::size_t {};
@@ -67,9 +68,13 @@ public:
 
       const auto end_post = std::min(value.length(), (std::size_t)cursor_col);
 
-      auto subview = str_o.value().subview(end_post);
-      view.insert_row(subview, cursor_row + 1);
-      view.modify_row(value.subview(0, end_post), cursor_row);
+      if (end_post == value.length()) {
+        view.insert_row("", cursor_row + 1);
+      } else {
+        const std::string_view subview = value.subview(end_post);
+        view.insert_row(subview, cursor_row + 1);
+        view.modify_row(value.subview(0, end_post), cursor_row);
+      }
     }
     adjust_cursor_row(1);
     validate_cursor_position();

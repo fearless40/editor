@@ -29,12 +29,13 @@ struct TextBuffer {
     rows.erase(rows.begin() + row);
   }
 
-  void insert_row(std::string_view data, std::size_t location) {
+  void insert_row(const std::string_view data, std::size_t location) {
     if (!is_valid_row(location)) {
       append_row(data);
     } else {
       auto it = rows.begin() + location;
-      rows.insert(it, std::move(std::string(data)));
+      std::string copy{data};
+      rows.insert(it, std::move(copy));
     }
   }
 
@@ -45,9 +46,9 @@ struct TextBuffer {
     rows[row] = std::string{data};
   }
 
-  void append_row(std::string_view data) { rows.emplace_back(data); }
+  void append_row(const std::string_view data) { rows.emplace_back(data); }
 
-  void append_row(std::string_view data, std::size_t row) {
+  void append_row(const std::string_view data, std::size_t row) {
     if (!is_valid_row(row))
       return;
     auto &string = rows[row];

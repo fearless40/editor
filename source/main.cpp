@@ -115,42 +115,6 @@ public:
       }
     }
 
-    // for (auto &m :
-    // keymap) {
-    //     if (m.keyCode
-    //     == key.key) {
-    //       if
-    //       (key.position
-    //       ==
-    //       term::KeyPosition::pressed
-    //       and
-    //           m.status
-    //           ==
-    //           Repeatablitiy::repeat)
-    //           {
-    //         if
-    //         (m.fn(key,
-    //         globals)
-    //         ==
-    //         EventContinue::consume)
-    //           return
-    //           true;
-    //       } else if
-    //       (key.position
-    //       ==
-    //       term::KeyPosition::released
-    //       and
-    //                  m.status == Repeatablitiy::single) {
-    //         if
-    //         (m.fn(key,
-    //         globals)
-    //         ==
-    //         EventContinue::consume)
-    //           return
-    //           true;
-    //       }
-    //     }
-    // }
     return false;
   }
 
