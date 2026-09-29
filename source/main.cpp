@@ -44,7 +44,7 @@ public:
   KeyMapping(EditorGlobals &gl) : globals(gl) {}
   EditorGlobals &globals;
   enum struct EventContinue { consume, resume };
-  enum struct Repeatablitiy { single, repeat };
+  enum struct Repeatability { single, repeat };
 
   using keyFN = std::function_ref<EventContinue(const term::KeyStatus &key,
                                                 EditorGlobals &global)>;
@@ -52,7 +52,7 @@ public:
 private:
   struct Mapping {
     int keyCode;
-    Repeatablitiy status;
+    Repeatability status;
     keyFN fn;
   };
 
@@ -91,8 +91,8 @@ private:
                : std::forward<Self>(self).release_map;
   }
   template <typename Self>
-  constexpr auto &select_map(this Self &&self, Repeatablitiy pos) {
-    return pos == Repeatablitiy::repeat ? std::forward<Self>(self).continous_map
+  constexpr auto &select_map(this Self &&self, Repeatability pos) {
+    return pos == Repeatability::repeat ? std::forward<Self>(self).continous_map
                                         : std::forward<Self>(self).release_map;
   }
 
@@ -154,12 +154,24 @@ public:
     return false;
   }
 
-  void add_key(term::KeyCodes code, keyFN &&keyfn, SpecialKeys flags,
-               Repeatablitiy repeat = Repeatablitiy::single) {
+private:
+  void _add_key(keyFN &&keyfn, Repeatability repeat, unsigned int key_integer) {
     auto fn_index = create_fn_index(std::forward<keyFN>(keyfn));
     auto &vec = select_map(repeat);
-    vec.emplace_back(make_key_integer(std::to_underlying(code), flags),
-                     fn_index);
+    vec.emplace_back(key_integer, fn_index);
+  }
+
+public:
+  void add_key(term::KeyCodes code, keyFN &&keyfn, SpecialKeys flags,
+               Repeatability repeat = Repeatability::single) {
+    _add_key(std::forward<keyFN>(keyfn), repeat,
+             make_key_integer(std::to_underlying(code), flags));
+  }
+
+  void add_key(char ascii, keyFN &&keyfn, SpecialKeys flags,
+               Repeatability repeat = Repeatability::single) {
+    _add_key(std::forward<keyFN>(keyfn), repeat,
+             make_key_integer(0xFF & ascii, flags));
   }
 };
 
@@ -227,87 +239,10 @@ void close_app(RequestReason) {
 
 ;
 
-bool key_press_continous(const term::KeyStatus &key) {
-  if (key.position != term::KeyPosition::pressed)
-    return false;
-
-  if (key.key == std::to_underlying(term::KeyCodes::UP)) {
-    editor_globals.view.up(1);
-    return true;
-    // tem::cursor::up(1);
-  }
-  if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
-    // term::cursor::left(1);
-    editor_globals.view.left(1);
-    return true;
-  }
-  if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
-    editor_globals.view.down(1);
-    return true;
-    // term::cursor::down(1);
-  }
-  if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
-    // term::cursor::right(1);
-    editor_globals.view.right(1);
-    return true;
-  }
-
-  if (key.key == std::to_underlying(term::KeyCodes::DELETE)) {
-    editor_globals.view.delete_char_to_right();
-    return true;
-  }
-
-  if (key.key == std::to_underlying(term::KeyCodes::BACKSPACE)) {
-    editor_globals.view.delete_char_to_left();
-    return true;
-  }
-
-  if (key.key == std::to_underlying(term::KeyCodes::ENTER)) {
-    editor_globals.view.insert_enter();
-    return true;
-  }
-  return false;
-}
-
-bool key_press_only_once(const term::KeyStatus &key) {
-  if (key.position != term::KeyPosition::released)
-    return false;
-
-  if (key.key == 'q' && key.alt == true) {
-    close_app(RequestReason::User);
-    return true;
-  }
-
-  // if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
-  //   editor_globals.view.line_home();
-  //   refresh_screen();
-  //   return true;
-  // }
-
-  if (key.key == std::to_underlying(term::KeyCodes::END)) {
-    editor_globals.view.line_end();
-    refresh_screen();
-    return true;
-  }
-
-  if (key.key == 'c' && key.alt == true) {
-    refresh_screen();
-    return true;
-  }
-
-  return false;
-}
-
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key) {
 
-  if (key_press_only_once(key))
-    return true;
-
   if (key_map.key_event(key))
-    return true;
-
-  if (key_press_continous(key))
     return true;
 
   if (key.key >= 32 and key.key <= 126 and
@@ -355,13 +290,45 @@ int main(int argv, char *argc[]) {
   editor_globals.view.set_window(RowSize{(std::size_t)tc.height() - 1},
                                  ColSize{(std::size_t)tc.width()});
 
+#define key_once(key_code, code, specialkeys)                                  \
+  key_map.add_key((key_code),                                                  \
+                  [](const term::KeyStatus &key, EditorGlobals &global) {      \
+                    code;                                                      \
+                    return KeyMapping::EventContinue::consume;                 \
+                  },                                                           \
+                  specialkeys, KeyMapping::Repeatability::single);
+
+#define key_many(key_code, code, specialkeys)                                  \
+  key_map.add_key((key_code),                                                  \
+                  [](const term::KeyStatus &key, EditorGlobals &global) {      \
+                    code;                                                      \
+                    return KeyMapping::EventContinue::consume;                 \
+                  },                                                           \
+                  specialkeys, KeyMapping::Repeatability::repeat);
+
   key_map.add_key(
       term::KeyCodes::HOME,
       [](const term::KeyStatus &key, EditorGlobals &global) {
         global.view.line_home();
         return KeyMapping::EventContinue::consume;
       },
-      SpecialKeys{0}, KeyMapping::Repeatablitiy::single);
+      SpecialKeys{0}, KeyMapping::Repeatability::single);
+
+  key_once(term::KeyCodes::END, global.view.line_end(), SpecialKeys{0});
+  key_once('c', refresh_screen(), SpecialKeys::alt);
+  key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
+  key_many(term::KeyCodes::UP, global.view.up(1), SpecialKeys{0});
+  key_many(term::KeyCodes::DOWN, global.view.down(1), SpecialKeys{0});
+  key_many(term::KeyCodes::LEFT, global.view.left(1), SpecialKeys{0});
+  key_many(term::KeyCodes::RIGHT, global.view.right(1), SpecialKeys{0});
+  key_many(term::KeyCodes::DELETE, global.view.delete_char_to_right(),
+           SpecialKeys{0});
+  key_many(term::KeyCodes::BACKSPACE, global.view.delete_char_to_left(),
+           SpecialKeys{0});
+  key_many(term::KeyCodes::ENTER, global.view.insert_enter(), SpecialKeys{0});
+
+#undef key_once
+#undef key_many
 
   refresh_screen();
 
@@ -376,3 +343,77 @@ int main(int argv, char *argc[]) {
 
   return 0;
 }
+
+// OLD CODE
+
+// bool key_press_continous(const term::KeyStatus &key) {
+//   if (key.position != term::KeyPosition::pressed)
+//     return false;
+//
+//   if (key.key == std::to_underlying(term::KeyCodes::UP)) {
+//     editor_globals.view.up(1);
+//     return true;
+//     // tem::cursor::up(1);
+//   }
+//   if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
+//     // term::cursor::left(1);
+//     editor_globals.view.left(1);
+//     return true;
+//   }
+//   if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
+//     editor_globals.view.down(1);
+//     return true;
+//     // term::cursor::down(1);
+//   }
+//   if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
+//     // term::cursor::right(1);
+//     editor_globals.view.right(1);
+//     return true;
+//   }
+//
+//   if (key.key == std::to_underlying(term::KeyCodes::DELETE)) {
+//     editor_globals.view.delete_char_to_right();
+//     return true;
+//   }
+//
+//   if (key.key == std::to_underlying(term::KeyCodes::BACKSPACE)) {
+//     editor_globals.view.delete_char_to_left();
+//     return true;
+//   }
+//
+//   if (key.key == std::to_underlying(term::KeyCodes::ENTER)) {
+//     editor_globals.view.insert_enter();
+//     return true;
+//   }
+//   return false;
+// }
+//
+//
+//
+// bool key_press_only_once(const term::KeyStatus &key) {
+//   if (key.position != term::KeyPosition::released)
+//     return false;
+//
+//   if (key.key == 'q' && key.alt == true) {
+//     close_app(RequestReason::User);
+//     return true;
+//   }
+//
+//   // if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
+//   //   editor_globals.view.line_home();
+//   //   refresh_screen();
+//   //   return true;
+//   // }
+//
+//   if (key.key == std::to_underlying(term::KeyCodes::END)) {
+//     editor_globals.view.line_end();
+//     return true;
+//   }
+//
+//   if (key.key == 'c' && key.alt == true) {
+//     refresh_screen();
+//     return true;
+//   }
+//
+//   return false;
+// }

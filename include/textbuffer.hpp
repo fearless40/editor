@@ -69,7 +69,10 @@ struct TextBuffer {
       return;
 
     auto &string = rows[row];
-    string.insert(col, 1, value);
+    if (col >= string.size())
+      string.append(&value, 1);
+    else
+      string.insert(col, 1, value);
   }
 
   void remove_char(std::size_t row, std::size_t col) {
