@@ -9,6 +9,7 @@
 #include "types.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <ios>
@@ -18,6 +19,36 @@
 #include <utility>
 #include <vector>
 
+struct Document {
+  enum class Type { file, virt };
+  enum class Errors { no_error = 0, file_does_not_exist, other_error };
+
+  Type m_type;
+  TextBuffer m_buffer;
+  std::filesystem::path m_file;
+  bool m_is_valid{false};
+
+  constexpr bool dirty() const { return m_buffer.dirty(); }
+
+  Errors read_file(std::filesystem::path file) {
+
+    std::fstream f{file, std::ios_base::in};
+    if (!f.is_open())
+      return Errors::file_does_not_exist;
+
+    std::string line;
+    while (!f.eof()) {
+      std::getline(f, line);
+      m_buffer.rows.emplace_back(std::move(line));
+    }
+    m_file = file;
+    m_is_valid = true;
+
+    m_buffer.clear_dirty();
+    return Errors::no_error;
+  }
+};
+
 struct EditorGlobals {
   term::Row rows;
   term::Col cols;
@@ -26,6 +57,7 @@ struct EditorGlobals {
   TextBuffer text;
   TextBufferView view{text};
   bool quit_now{false};
+  std::vector<Document> documents;
 };
 
 enum class SpecialKeys : std::uint8_t {
