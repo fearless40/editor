@@ -208,7 +208,7 @@ void refresh_screen() {
   buff.add(" C:");
   buff.add((unsigned int)editor_globals.view.col());
   buff.add(" T:");
-  buff.add((unsigned int)editor_globals.text.number_rows());
+  buff.add((unsigned int)editor_globals.text.last_index());
   buff.add(" L:");
   buff.add(
       (unsigned int)editor_globals.text.line_length(editor_globals.view.row()));

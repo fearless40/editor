@@ -8,17 +8,19 @@
 
 struct TextBuffer {
   std::vector<std::string> rows;
-  std::size_t number_rows() const { return rows.size() - 1; }
+  std::size_t last_index() const { return empty() ? 0 : rows.size() - 1; }
   constexpr bool empty() const { return rows.empty(); }
+  constexpr std::size_t size() const { return rows.size(); }
 
   constexpr bool is_valid_row(std::size_t row) const {
-    return row >= 0 and row < number_rows();
+    return row >= 0 and row < size();
   }
 
   constexpr std::size_t line_length(unsigned row) const {
-    if (row >= rows.size())
-      return 0;
-    return rows[row].length();
+    if (row < rows.size())
+      return rows[row].length();
+
+    return 0;
   }
 
   void remove_row(std::size_t row) {
@@ -58,24 +60,20 @@ struct TextBuffer {
   }
 
   void insert_char(std::size_t row, std::size_t col, char value) {
-    if (empty() || number_rows() == 0) {
+    if (empty() || row >= size()) {
       append_row(std::string_view{&value, 1});
       return;
     }
 
     if (!is_valid_row(row))
       return;
-    if (row == number_rows()) {
-      rows.push_back(std::string{value});
-      return;
-    }
 
     auto &string = rows[row];
     string.insert(col, 1, value);
   }
 
   void remove_char(std::size_t row, std::size_t col) {
-    if (!is_valid_row(row) && col >= line_length(row))
+    if (!is_valid_row(row) || col >= line_length(row))
       return;
 
     auto &string = rows[row];

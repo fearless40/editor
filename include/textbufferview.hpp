@@ -83,8 +83,6 @@ public:
   constexpr void delete_char_to_left() {
     if (cursor_col == 0 and cursor_row == 0)
       return;
-    // if (cursor_row == view.number_rows())
-    // return;
 
     if (cursor_col > 0) {
       view.remove_char(cursor_row, cursor_col - 1);
@@ -160,9 +158,9 @@ private:
       cursor_row = 0;
       return;
     }
-    long length = view.number_rows() - 1;
 
-    cursor_row = std::clamp(amount + cursor_row, 0l, length);
+    cursor_row =
+        std::clamp(amount + cursor_row, 0l, static_cast<long>(view.size()) - 1);
   }
   constexpr void do_scroll() {
 
