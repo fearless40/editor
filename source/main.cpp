@@ -1,234 +1,37 @@
 // #include "version.hpp"
 #include "cursor.hpp"
+#include "document.hpp"
+#include "documentview.hpp"
 #include "dynamiccommandbuffer.hpp"
 #include "enum.hpp"
+#include "keymap.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
 #include "textbuffer.hpp"
 #include "textbufferview.hpp"
 #include "types.hpp"
 #include <cstddef>
-#include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <functional>
-#include <ios>
-#include <iostream>
 #include <iterator>
-#include <memory>
 #include <ranges>
 #include <string_view>
 #include <utility>
 #include <vector>
-
-struct Document {
-  enum class Errors { no_error = 0, file_does_not_exist, other_error };
-
-  TextBuffer m_buffer;
-  std::filesystem::path m_file;
-
-  bool m_is_file_empty{true};
-
-  constexpr bool dirty() const { return m_buffer.dirty(); }
-
-  Errors read_file(std::filesystem::path file) {
-
-    std::fstream f{file, std::ios_base::in};
-    if (!f.is_open())
-      return Errors::file_does_not_exist;
-
-    std::string line;
-    while (!f.eof()) {
-      std::getline(f, line);
-      m_buffer.rows.emplace_back(std::move(line));
-    }
-    m_file = file;
-    m_is_file_empty = false;
-
-    m_buffer.clear_dirty();
-    return Errors::no_error;
-  }
-};
-
-struct DocumentView {
-
-  // Ows the view but views are moveable and can be allocated within the vector
-  TextBufferView view;
-
-  // Non owning pointer
-  Document *document;
-
-  DocumentView(Document *doc) : document(doc), view(doc->m_buffer) {}
-};
 
 struct EditorGlobals {
   term::Row rows;
   term::Col cols;
   term::Row cr;
   term::Col cc;
-  TextBuffer text;
-  TextBufferView view{text};
   bool quit_now{false};
-};
-
-struct DocumentViewManager {
-  std::vector<DocumentView> views;
-  std::size_t active_view_index{0};
-
-  void set_active_view(std::size_t index) {
-    if (index < views.size())
-      active_view_index = index;
-  }
-
-  void create_view(Document *doc, std::size_t row_width,
-                   std::size_t col_width) {
-    views.emplace_back(doc);
-    auto &d = views.back();
-    d.view.set_window(RowSize{row_width}, ColSize{col_width});
-    active_view_index = std::distance(views.begin(), views.end() - 1);
-  }
-
-  TextBufferView &current_TextBufferView() {
-    return views[active_view_index].view;
-  }
-};
-
-struct DocumentManager {
-  std::vector<std::unique_ptr<Document>> documents;
-  // Invariant assertion there is never a non active view. A view is always
-  // created at startup
-
-  Document *create_empty_document() {
-    auto ptr = std::make_unique<Document>();
-    documents.push_back(std::move(ptr));
-    return documents.back().get();
-  }
-
-  Document *load(std::filesystem::path filepath) {
-    if (auto ptr = std::make_unique<Document>();
-        ptr->read_file(filepath) == Document::Errors::no_error) {
-      documents.push_back(std::move(ptr));
-      return documents.back().get();
-    };
-
-    return create_empty_document();
-  }
 };
 
 DocumentManager g_DocManager;
 DocumentViewManager g_DocViews;
 
-enum class SpecialKeys : std::uint8_t {
-  alt = 0b1,
-  ctrl = 0b10,
-  shift = 0b100,
-  super = 0b1000,
-  left = 0b10000,
-  right = 0b100000
-};
-
-MAKE_ENUM_FLAG(SpecialKeys)
-
-class KeyMapping {
-public:
-  enum struct EventContinue { consume, resume };
-  enum struct Repeatability { single, repeat };
-
-  using keyFN = std::function_ref<EventContinue(const term::KeyStatus &key,
-                                                TextBufferView &view)>;
-
-private:
-  struct Mapping {
-    int keyCode;
-    Repeatability status;
-    keyFN fn;
-  };
-
-  struct key_map {
-    unsigned int key;
-    unsigned int index;
-  };
-
-  constexpr unsigned int make_key_integer(int keycode,
-                                          SpecialKeys flags) const {
-    return (keycode & 0x00FFFFFF) | ((std::to_underlying(flags) & 0xFF) << 24);
-  }
-
-  constexpr SpecialKeys from_key_status(term::KeyStatus status) const {
-    using util::flags::operator|;
-    SpecialKeys k{0};
-    if (status.alt)
-      k = k | SpecialKeys::alt;
-    if (status.ctl)
-      k = k | SpecialKeys::ctrl;
-    if (status.shift)
-      k = k | SpecialKeys::shift;
-    if (status.super)
-      k = k | SpecialKeys::super;
-    return k;
-  }
-
-  std::vector<key_map> continous_map;
-  std::vector<key_map> release_map;
-  std::vector<keyFN> functions;
-
-  template <typename Self>
-  constexpr auto &select_map(this Self &&self, term::KeyPosition pos) {
-    return pos == term::KeyPosition::pressed
-               ? std::forward<Self>(self).continous_map
-               : std::forward<Self>(self).release_map;
-  }
-  template <typename Self>
-  constexpr auto &select_map(this Self &&self, Repeatability pos) {
-    return pos == Repeatability::repeat ? std::forward<Self>(self).continous_map
-                                        : std::forward<Self>(self).release_map;
-  }
-
-  unsigned int create_fn_index(keyFN &&fn) {
-    functions.emplace_back(std::forward<keyFN>(fn));
-    auto last = functions.end() - 1;
-    if (last == functions.begin())
-      return 0;
-    return static_cast<unsigned int>(std::distance(functions.begin(), last));
-  }
-
-public:
-  bool key_event(const term::KeyStatus &key, TextBufferView &view) const {
-    auto keyID = make_key_integer(key.key, from_key_status(key));
-    auto &vec = select_map(key.position);
-    for (const auto &[index, map] : std::views::enumerate(vec)) {
-      if (map.key == keyID) {
-        if (functions[map.index](key, view) == EventContinue::consume)
-          return true;
-      }
-    }
-
-    return false;
-  }
-
-private:
-  void _add_key(keyFN &&keyfn, Repeatability repeat, unsigned int key_integer) {
-    auto fn_index = create_fn_index(std::forward<keyFN>(keyfn));
-    auto &vec = select_map(repeat);
-    vec.emplace_back(key_integer, fn_index);
-  }
-
-public:
-  void add_key(term::KeyCodes code, keyFN &&keyfn, SpecialKeys flags,
-               Repeatability repeat = Repeatability::single) {
-    _add_key(std::forward<keyFN>(keyfn), repeat,
-             make_key_integer(std::to_underlying(code), flags));
-  }
-
-  void add_key(char ascii, keyFN &&keyfn, SpecialKeys flags,
-               Repeatability repeat = Repeatability::single) {
-    _add_key(std::forward<keyFN>(keyfn), repeat,
-             make_key_integer(0xFF & ascii, flags));
-  }
-};
-
 EditorGlobals editor_globals;
-KeyMapping key_map;
+KeyMap key_map;
 
 void render_view(term::CommandBuffer &buff, const TextBufferView &view) {
 
@@ -275,7 +78,7 @@ void refresh_screen() {
   buff.add(" T:");
   buff.add((unsigned int)view.buffer().last_index());
   buff.add(" L:");
-  buff.add((unsigned int)view.buffer().line_length(editor_globals.view.row()));
+  buff.add((unsigned int)view.buffer().line_length(view.row()));
 
   term::cursor::position(
       buff, term::Row{(int)g_DocViews.current_TextBufferView().crow() + 1},
@@ -309,18 +112,12 @@ bool process_key_presses(const term::KeyStatus &key) {
 
 int main(int argv, char *argc[]) {
 
-  // std::cout << "Hello from the battleship program!\n";
-  // std::cout << "Version: " << Version::MAJOR_VERSION << "."
-  //           << Version::MINOR_VERSION << '\n';
-
-  // compositor_test();
-
   term::TermControl tc{};
 
-  if (argv >= 2) {
-    if (!g_DocManager.load(argc[1]))
-      return -1;
-  }
+  if (argv >= 2)
+    g_DocManager.load(argc[1]);
+  else
+    g_DocManager.create_empty_document();
 
   g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1,
                          tc.width());
@@ -332,25 +129,25 @@ int main(int argv, char *argc[]) {
   key_map.add_key((key_code),                                                  \
                   [](const term::KeyStatus &key, TextBufferView &view) {       \
                     code;                                                      \
-                    return KeyMapping::EventContinue::consume;                 \
+                    return KeyMap::EventContinue::consume;                     \
                   },                                                           \
-                  specialkeys, KeyMapping::Repeatability::single);
+                  specialkeys, KeyMap::Repeatability::single);
 
 #define key_many(key_code, code, specialkeys)                                  \
   key_map.add_key((key_code),                                                  \
                   [](const term::KeyStatus &key, TextBufferView &view) {       \
                     code;                                                      \
-                    return KeyMapping::EventContinue::consume;                 \
+                    return KeyMap::EventContinue::consume;                     \
                   },                                                           \
-                  specialkeys, KeyMapping::Repeatability::repeat);
+                  specialkeys, KeyMap::Repeatability::repeat);
 
   key_map.add_key(
       term::KeyCodes::HOME,
       [](const term::KeyStatus &key, TextBufferView &view) {
         view.line_home();
-        return KeyMapping::EventContinue::consume;
+        return KeyMap::EventContinue::consume;
       },
-      SpecialKeys{0}, KeyMapping::Repeatability::single);
+      SpecialKeys{0}, KeyMap::Repeatability::single);
 
   key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{0});
   key_once('c', refresh_screen(), SpecialKeys::alt);

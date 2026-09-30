@@ -97,7 +97,7 @@ target_link_libraries( adam.terminal
 
 add_executable(
    CppEditor
-
+   document.cpp
    main.cpp
 )
 
