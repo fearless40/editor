@@ -14,19 +14,20 @@
 #include <functional>
 #include <ios>
 #include <iostream>
+#include <iterator>
+#include <memory>
 #include <ranges>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 struct Document {
-  enum class Type { file, virt };
   enum class Errors { no_error = 0, file_does_not_exist, other_error };
 
-  Type m_type;
   TextBuffer m_buffer;
   std::filesystem::path m_file;
-  bool m_is_valid{false};
+
+  bool m_is_file_empty{true};
 
   constexpr bool dirty() const { return m_buffer.dirty(); }
 
@@ -42,11 +43,22 @@ struct Document {
       m_buffer.rows.emplace_back(std::move(line));
     }
     m_file = file;
-    m_is_valid = true;
+    m_is_file_empty = false;
 
     m_buffer.clear_dirty();
     return Errors::no_error;
   }
+};
+
+struct DocumentView {
+
+  // Ows the view but views are moveable and can be allocated within the vector
+  TextBufferView view;
+
+  // Non owning pointer
+  Document *document;
+
+  DocumentView(Document *doc) : document(doc), view(doc->m_buffer) {}
 };
 
 struct EditorGlobals {
@@ -57,8 +69,54 @@ struct EditorGlobals {
   TextBuffer text;
   TextBufferView view{text};
   bool quit_now{false};
-  std::vector<Document> documents;
 };
+
+struct DocumentViewManager {
+  std::vector<DocumentView> views;
+  std::size_t active_view_index{0};
+
+  void set_active_view(std::size_t index) {
+    if (index < views.size())
+      active_view_index = index;
+  }
+
+  void create_view(Document *doc, std::size_t row_width,
+                   std::size_t col_width) {
+    views.emplace_back(doc);
+    auto &d = views.back();
+    d.view.set_window(RowSize{row_width}, ColSize{col_width});
+    active_view_index = std::distance(views.begin(), views.end() - 1);
+  }
+
+  TextBufferView &current_TextBufferView() {
+    return views[active_view_index].view;
+  }
+};
+
+struct DocumentManager {
+  std::vector<std::unique_ptr<Document>> documents;
+  // Invariant assertion there is never a non active view. A view is always
+  // created at startup
+
+  Document *create_empty_document() {
+    auto ptr = std::make_unique<Document>();
+    documents.push_back(std::move(ptr));
+    return documents.back().get();
+  }
+
+  Document *load(std::filesystem::path filepath) {
+    if (auto ptr = std::make_unique<Document>();
+        ptr->read_file(filepath) == Document::Errors::no_error) {
+      documents.push_back(std::move(ptr));
+      return documents.back().get();
+    };
+
+    return create_empty_document();
+  }
+};
+
+DocumentManager g_DocManager;
+DocumentViewManager g_DocViews;
 
 enum class SpecialKeys : std::uint8_t {
   alt = 0b1,
@@ -73,13 +131,11 @@ MAKE_ENUM_FLAG(SpecialKeys)
 
 class KeyMapping {
 public:
-  KeyMapping(EditorGlobals &gl) : globals(gl) {}
-  EditorGlobals &globals;
   enum struct EventContinue { consume, resume };
   enum struct Repeatability { single, repeat };
 
   using keyFN = std::function_ref<EventContinue(const term::KeyStatus &key,
-                                                EditorGlobals &global)>;
+                                                TextBufferView &view)>;
 
 private:
   struct Mapping {
@@ -137,12 +193,12 @@ private:
   }
 
 public:
-  bool key_event(const term::KeyStatus &key) const {
+  bool key_event(const term::KeyStatus &key, TextBufferView &view) const {
     auto keyID = make_key_integer(key.key, from_key_status(key));
     auto &vec = select_map(key.position);
     for (const auto &[index, map] : std::views::enumerate(vec)) {
       if (map.key == keyID) {
-        if (functions[map.index](key, globals) == EventContinue::consume)
+        if (functions[map.index](key, view) == EventContinue::consume)
           return true;
       }
     }
@@ -172,7 +228,7 @@ public:
 };
 
 EditorGlobals editor_globals;
-KeyMapping key_map{editor_globals};
+KeyMapping key_map;
 
 void render_view(term::CommandBuffer &buff, const TextBufferView &view) {
 
@@ -205,24 +261,25 @@ void refresh_screen() {
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  render_view(buff, editor_globals.view);
+  render_view(buff, g_DocViews.current_TextBufferView());
 
-  term::cursor::position(buff,
-                         term::Row{(int)editor_globals.view.window_rows() + 1},
+  auto &view = g_DocViews.current_TextBufferView();
+
+  term::cursor::position(buff, term::Row{(int)view.window_rows() + 1},
                          term::Col{1});
 
   buff.add("Cursor  R:");
-  buff.add((unsigned int)editor_globals.view.row());
+  buff.add((unsigned int)view.row());
   buff.add(" C:");
-  buff.add((unsigned int)editor_globals.view.col());
+  buff.add((unsigned int)view.col());
   buff.add(" T:");
-  buff.add((unsigned int)editor_globals.text.last_index());
+  buff.add((unsigned int)view.buffer().last_index());
   buff.add(" L:");
-  buff.add(
-      (unsigned int)editor_globals.text.line_length(editor_globals.view.row()));
+  buff.add((unsigned int)view.buffer().line_length(editor_globals.view.row()));
 
-  term::cursor::position(buff, term::Row{(int)editor_globals.view.crow() + 1},
-                         term::Col{(int)(editor_globals.view.ccol()) + 1});
+  term::cursor::position(
+      buff, term::Row{(int)g_DocViews.current_TextBufferView().crow() + 1},
+      term::Col{(int)(g_DocViews.current_TextBufferView().ccol()) + 1});
   term::cursor::on(buff);
   buff.submit();
 }
@@ -238,31 +295,16 @@ void close_app(RequestReason) {
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key) {
 
-  if (key_map.key_event(key))
+  if (key_map.key_event(key, g_DocViews.current_TextBufferView()))
     return true;
 
   if (key.key >= 32 and key.key <= 126 and
       key.position == term::KeyPosition::released) {
-    editor_globals.view.insert_char_at_cursor(key.key);
+    g_DocViews.current_TextBufferView().insert_char_at_cursor(key.key);
     return true;
   }
 
   return false;
-}
-
-bool open_file(const char *filename) {
-  std::fstream f{filename, std::ios_base::in};
-  if (!f.is_open())
-    return false;
-
-  std::string line;
-  while (!f.eof()) {
-    std::getline(f, line);
-    editor_globals.text.rows.emplace_back(std::move(line));
-  }
-  // editor_globals.text.rows.emplace_back(std::move(line));
-
-  return true;
 }
 
 int main(int argv, char *argc[]) {
@@ -276,19 +318,19 @@ int main(int argv, char *argc[]) {
   term::TermControl tc{};
 
   if (argv >= 2) {
-    if (!open_file(argc[1]))
+    if (!g_DocManager.load(argc[1]))
       return -1;
   }
 
+  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1,
+                         tc.width());
+
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
-  editor_globals.view.set_view(editor_globals.text);
-  editor_globals.view.set_window(RowSize{(std::size_t)tc.height() - 1},
-                                 ColSize{(std::size_t)tc.width()});
 
 #define key_once(key_code, code, specialkeys)                                  \
   key_map.add_key((key_code),                                                  \
-                  [](const term::KeyStatus &key, EditorGlobals &global) {      \
+                  [](const term::KeyStatus &key, TextBufferView &view) {       \
                     code;                                                      \
                     return KeyMapping::EventContinue::consume;                 \
                   },                                                           \
@@ -296,7 +338,7 @@ int main(int argv, char *argc[]) {
 
 #define key_many(key_code, code, specialkeys)                                  \
   key_map.add_key((key_code),                                                  \
-                  [](const term::KeyStatus &key, EditorGlobals &global) {      \
+                  [](const term::KeyStatus &key, TextBufferView &view) {       \
                     code;                                                      \
                     return KeyMapping::EventContinue::consume;                 \
                   },                                                           \
@@ -304,24 +346,23 @@ int main(int argv, char *argc[]) {
 
   key_map.add_key(
       term::KeyCodes::HOME,
-      [](const term::KeyStatus &key, EditorGlobals &global) {
-        global.view.line_home();
+      [](const term::KeyStatus &key, TextBufferView &view) {
+        view.line_home();
         return KeyMapping::EventContinue::consume;
       },
       SpecialKeys{0}, KeyMapping::Repeatability::single);
 
-  key_once(term::KeyCodes::END, global.view.line_end(), SpecialKeys{0});
+  key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{0});
   key_once('c', refresh_screen(), SpecialKeys::alt);
   key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
-  key_many(term::KeyCodes::UP, global.view.up(1), SpecialKeys{0});
-  key_many(term::KeyCodes::DOWN, global.view.down(1), SpecialKeys{0});
-  key_many(term::KeyCodes::LEFT, global.view.left(1), SpecialKeys{0});
-  key_many(term::KeyCodes::RIGHT, global.view.right(1), SpecialKeys{0});
-  key_many(term::KeyCodes::DELETE, global.view.delete_char_to_right(),
+  key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{0});
+  key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{0});
+  key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{0});
+  key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{0});
+  key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{0});
+  key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(),
            SpecialKeys{0});
-  key_many(term::KeyCodes::BACKSPACE, global.view.delete_char_to_left(),
-           SpecialKeys{0});
-  key_many(term::KeyCodes::ENTER, global.view.insert_enter(), SpecialKeys{0});
+  key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{0});
 
 #undef key_once
 #undef key_many
