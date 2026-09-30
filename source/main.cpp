@@ -3,7 +3,6 @@
 #include "document.hpp"
 #include "documentview.hpp"
 #include "dynamiccommandbuffer.hpp"
-#include "enum.hpp"
 #include "keymap.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
@@ -12,8 +11,6 @@
 #include "types.hpp"
 #include <cstddef>
 #include <filesystem>
-#include <functional>
-#include <iterator>
 #include <ranges>
 #include <string_view>
 #include <utility>
@@ -32,23 +29,42 @@ DocumentViewManager g_DocViews;
 
 EditorGlobals editor_globals;
 KeyMap key_map;
+LeftGutter g_LeftGutter;
 
-void render_view(term::CommandBuffer &buff, const TextBufferView &view) {
+void render_fixedbufferview(term::CommandBuffer &buff,
+                            FixedWidthTextBuffer &fbuf) {
+  term::cursor::reset_position(buff);
+  for (auto [index, sv] : fbuf.line_view_index()) {
+    buff.add(sv);
+    // buff.add('\n');
+
+    term::cursor::position(buff, term::Row{(int)index + 1}, term::Col{1});
+  }
+}
+
+void render_view(term::CommandBuffer &buff, const TextBufferView &view,
+                 int row_offset = 0, int col_offset = 0) {
 
   if (view.buffer().empty())
     return;
 
+  term::cursor::position(buff, term::Row{(int)row_offset + 1},
+                         term::Col{(int)col_offset + 1});
+
   const auto col_size = std::to_underlying(view.window_cols());
   const auto row_size = std::to_underlying(view.window_rows());
   for (const auto &[index, row] :
-       std::views::enumerate(view.buffer().rows) |
+       view.buffer().rows |
            std::views::drop(std::to_underlying(view.row_scroll())) |
-           std::views::take(row_size)) {
+           std::views::take(row_size) | std::views::enumerate) {
 
     if (std::to_underlying(view.col_scroll()) < row.length())
       buff.add(
           row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
-    buff.add('\n');
+    // else
+    // buff.add(row);
+    term::cursor::position(buff, term::Row{(int)row_offset + (int)index + 1},
+                           term::Col{(int)col_offset + 1});
   }
 }
 
@@ -64,9 +80,14 @@ void refresh_screen() {
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  render_view(buff, g_DocViews.current_TextBufferView());
+  auto &view = g_DocViews.current_view();
 
-  auto &view = g_DocViews.current_TextBufferView();
+  g_LeftGutter.update_width(view);
+  g_LeftGutter.raw_view(view);
+
+  render_fixedbufferview(buff, g_LeftGutter.buff);
+
+  render_view(buff, view, 0, g_LeftGutter.total_width());
 
   term::cursor::position(buff, term::Row{(int)view.window_rows() + 1},
                          term::Col{1});
@@ -81,8 +102,8 @@ void refresh_screen() {
   buff.add((unsigned int)view.buffer().line_length(view.row()));
 
   term::cursor::position(
-      buff, term::Row{(int)g_DocViews.current_TextBufferView().crow() + 1},
-      term::Col{(int)(g_DocViews.current_TextBufferView().ccol()) + 1});
+      buff, term::Row{(int)view.crow() + 1},
+      term::Col{(int)(view.ccol()) + 1 + (int)g_LeftGutter.total_width()});
   term::cursor::on(buff);
   buff.submit();
 }
@@ -98,12 +119,12 @@ void close_app(RequestReason) {
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key) {
 
-  if (key_map.key_event(key, g_DocViews.current_TextBufferView()))
+  if (key_map.key_event(key, g_DocViews.current_view()))
     return true;
 
   if (key.key >= 32 and key.key <= 126 and
       key.position == term::KeyPosition::released) {
-    g_DocViews.current_TextBufferView().insert_char_at_cursor(key.key);
+    g_DocViews.current_view().insert_char_at_cursor(key.key);
     return true;
   }
 
@@ -114,13 +135,16 @@ int main(int argv, char *argc[]) {
 
   term::TermControl tc{};
 
+  g_LeftGutter.right_border_width = 1;
+  g_LeftGutter.request_width = 4;
+
   if (argv >= 2)
     g_DocManager.load(argc[1]);
   else
     g_DocManager.create_empty_document();
 
   g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1,
-                         tc.width());
+                         tc.width() - g_LeftGutter.total_width());
 
   editor_globals.rows = term::Row{tc.height()};
   editor_globals.cols = term::Col{tc.width()};
