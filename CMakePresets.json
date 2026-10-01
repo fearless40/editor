@@ -11,8 +11,8 @@
             "description": "General settings that apply to all configurations",
             "hidden": true,
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/bin/${presetName}",
-            "installDir": "${sourceDir}/install/${presetName}"
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "installDir": "${sourceDir}/build/${presetName}"
         },
         {
             "name": "conf-windows-common",
@@ -153,6 +153,14 @@
                 "CMAKE_CXX_COMPILER": "clang++",
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo"
             }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "gcc-debug",
+            "displayName": "GCC debug preset",
+            "description": "Build project using GCC debug build",
+            "configurePreset": "gcc-debug"
         }
     ],
     "testPresets": [
