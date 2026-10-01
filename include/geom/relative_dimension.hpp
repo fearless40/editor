@@ -1,86 +1,91 @@
 #pragma once
 #include <compare>
+#include <concepts>
 
 namespace geom {
 
-template <typename TypedPositionT> struct TypedDimension {
+template<typename TypedPositionT> struct TypedDimension
+{
   using position_t = TypedPositionT;
   using underlying_t = typename position_t::underlying_t;
   using type = TypedDimension<TypedPositionT>;
 
   underlying_t value;
 
-  constexpr underlying_t underlying() const noexcept { return value; }
+  template<std::integral value> [[nodiscard]] constexpr static type make(value val) noexcept
+  { return type{ static_cast<underlying_t>(val) }; }
 
-  constexpr TypedDimension(underlying_t value_) : value(value_) {}
+  [[nodiscard]]
+  constexpr underlying_t underlying() const noexcept
+  { return value; }
+
+  explicit constexpr TypedDimension(underlying_t value_) : value(value_) {}
 
   constexpr TypedDimension(position_t const &first, position_t const &second)
-      : value(second.underlying() - first.underlying()) {}
+    : value(second.underlying() - first.underlying())
+  {}
 
-  constexpr std::strong_ordering
-  operator<=>(type const &other) const noexcept = default;
+  constexpr std::strong_ordering operator<=>(type const &other) const noexcept = default;
 
-  constexpr std::strong_ordering
-  operator<=>(position_t const &other) const noexcept {
-    return other.underlying() <=> value;
-  }
+  constexpr std::strong_ordering operator<=>(position_t const &other) const noexcept
+  { return other.underlying() <=> value; }
 
   constexpr bool operator==(type const &other) const noexcept = default;
   constexpr bool operator!=(type const &other) const noexcept = default;
 
-  constexpr type &operator+=(type const &other) const noexcept {
+  constexpr type &operator+=(type const &other) const noexcept
+  {
     value += other.value;
     return *this;
   }
-  constexpr type &operator-=(type const &other) const noexcept {
+  constexpr type &operator-=(type const &other) const noexcept
+  {
     value -= other.value;
     return *this;
   }
-  constexpr type &operator++() const noexcept {
+  constexpr type &operator++() const noexcept
+  {
     value += static_cast<underlying_t>(1);
     return *this;
   }
-  constexpr type operator++(int) const noexcept {
+  constexpr type operator++(int) const noexcept
+  {
     auto ret = value;
     value += static_cast<underlying_t>(1);
     return ret;
   }
-  constexpr type &operator--() const noexcept {
+  constexpr type &operator--() const noexcept
+  {
     value -= static_cast<underlying_t>(1);
     return *this;
   }
 
-  constexpr type &operator--(int) const noexcept {
+  constexpr type &operator--(int) const noexcept
+  {
     auto ret = *this;
     value -= static_cast<underlying_t>(1);
     return ret;
   }
 
-  constexpr type &operator*=(underlying_t value_) const noexcept {
+  constexpr type &operator*=(underlying_t value_) const noexcept
+  {
     value *= value_;
     return *this;
   }
-  constexpr type &operator/=(underlying_t value_) const noexcept {
+  constexpr type &operator/=(underlying_t value_) const noexcept
+  {
     value /= value_;
     return *this;
   }
 
-  friend constexpr type operator+(const type &left,
-                                  const type &right) noexcept {
-    return type{left.value + right.value};
-  }
-  friend constexpr type operator-(const type &left,
-                                  const type &right) noexcept {
-    return type{left.value - right.value};
-  }
+  friend constexpr type operator+(const type &left, const type &right) noexcept
+  { return type{ left.value + right.value }; }
+  friend constexpr type operator-(const type &left, const type &right) noexcept
+  { return type{ left.value - right.value }; }
 
-  friend constexpr position_t operator+(const position_t &left,
-                                        const type &dimension) noexcept {
-    return position_t{left.underlying() + dimension.underlying()};
-  }
-  friend constexpr position_t operator-(const position_t &left,
-                                        const type &dimension) noexcept {
-    return position_t{left.underlying() - dimension.underlying()};
-  }
+  friend constexpr position_t operator+(const position_t &left, const type &dimension) noexcept
+  { return position_t{ left.underlying() + dimension.underlying() }; }
+  friend constexpr position_t operator-(const position_t &left, const type &dimension) noexcept
+  { return position_t{ left.underlying() - dimension.underlying() }; }
 };
-} // namespace geom
+}// namespace geom

@@ -42,6 +42,9 @@
 /Testing/*
 /.vscode/*
 
+#Specific files
+compile_commands.json
+
 #Do not ignore CMakeLists
 !/extern/CMakeLists.txt
 !/build/FileLeftEmpty.txt

@@ -1,5 +1,7 @@
 #pragma once
+#include "documentview.hpp"
 #include "textbuffer.hpp"
+#include "xh.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <string_view>
@@ -8,26 +10,35 @@
 enum class RowSize : std::size_t {};
 enum class ColSize : std::size_t {};
 
-class TextBufferView {
+class TextBufferView
+{
+  using Height = geom::Height;
+  using Width = geom::Width;
   TextBuffer &view;
 
-  std::size_t screen_rows{0};
-  std::size_t screen_cols{0};
-  long cursor_row{0};
-  long cursor_col{0};
-  std::size_t row_offset{0};
-  std::size_t col_offset{0};
-  bool view_scrolled_rows{true};
-  bool view_scrolled_cols{true};
+  Height screen_rows{ 0 };
+  Width screen_cols{ 0 };
+
+  // Cursors are the actual value into the file not a visual value
+  long cursor_row{ 0 };
+  long cursor_col{ 0 };
+
+  // Rowoffset is a value into the file
+  std::size_t row_offset{ 0 };
+  std::size_t col_offset{ 0 };
+
+  bool view_scrolled_rows{ true };
+  bool view_scrolled_cols{ true };
 
 public:
-  TextBufferView(TextBuffer &buffer) : view(buffer) {};
+  explicit TextBufferView(TextBuffer &buffer) : view(buffer) {};
 
   void set_view(TextBuffer &buffer) { view = buffer; }
 
-  constexpr void set_window(RowSize rows, ColSize cols) {
-    screen_rows = std::to_underlying(rows);
-    screen_cols = std::to_underlying(cols);
+  constexpr void set_window(Height rows, Width cols)
+  {
+    screen_rows = rows;
+    screen_cols = cols;
   }
 
   bool did_view_scroll_rows() const { return view_scrolled_rows; }
@@ -42,24 +53,25 @@ public:
 
   constexpr long ccol() const { return (cursor_col - (long)col_offset); }
 
-  constexpr RowSize window_rows() const { return RowSize{screen_rows}; }
+  constexpr RowSize window_rows() const { return RowSize{ screen_rows }; }
 
-  constexpr ColSize window_cols() const { return ColSize{screen_cols}; }
+  constexpr ColSize window_cols() const { return ColSize{ screen_cols }; }
 
   constexpr TextBuffer buffer() const { return view; }
 
-  constexpr RowSize row_scroll() const { return RowSize{row_offset}; }
-  constexpr ColSize col_scroll() const { return ColSize{col_offset}; }
+  constexpr RowSize row_scroll() const { return RowSize{ row_offset }; }
+  constexpr ColSize col_scroll() const { return ColSize{ col_offset }; }
 
-  constexpr void insert_char_at_cursor(char c) {
+  constexpr void insert_char_at_cursor(char c)
+  {
     view.insert_char(cursor_row, cursor_col, c);
     cursor_col++;
   }
 
-  constexpr void insert_enter() {
+  constexpr void insert_enter()
+  {
     auto str_o = view.get_row(cursor_row);
-    if (!str_o)
-      return;
+    if (!str_o) { return; }
 
     auto &value = str_o.value();
     if (value.length() == 0) {
@@ -80,14 +92,15 @@ public:
     validate_cursor_position();
   }
 
-  constexpr void delete_char_to_right() {
+  constexpr void delete_char_to_right()
+  {
     right(1);
     delete_char_to_left();
   }
 
-  constexpr void delete_char_to_left() {
-    if (cursor_col == 0 and cursor_row == 0)
-      return;
+  constexpr void delete_char_to_left()
+  {
+    if (cursor_col == 0 and cursor_row == 0) return;
 
     if (cursor_col > 0) {
       view.remove_char(cursor_row, cursor_col - 1);
@@ -95,8 +108,7 @@ public:
     } else {
 
       auto str_o = view.get_row(cursor_row);
-      if (!str_o)
-        return;
+      if (!str_o) return;
 
       auto &string = str_o.value();
 
@@ -113,27 +125,32 @@ public:
     validate_cursor_position();
   }
 
-  constexpr void up(unsigned int amt) {
+  constexpr void up(unsigned int amt)
+  {
     adjust_cursor_row(-(long)amt);
     validate_cursor_position();
   }
 
-  constexpr void down(unsigned int amt) {
+  constexpr void down(unsigned int amt)
+  {
     adjust_cursor_row((long)(amt));
 
     validate_cursor_position();
   }
 
-  constexpr void line_home() {
+  constexpr void line_home()
+  {
     cursor_col = 0;
     validate_cursor_position();
   };
-  constexpr void line_end() {
+  constexpr void line_end()
+  {
     cursor_col = view.line_length(cursor_row);
     validate_cursor_position();
   }
 
-  constexpr void left(unsigned int amt) {
+  constexpr void left(unsigned int amt)
+  {
     cursor_col -= (long)amt;
     if (cursor_col < 0) {
       adjust_cursor_row(-1);
@@ -142,7 +159,8 @@ public:
     validate_cursor_position();
   };
 
-  constexpr void right(unsigned int amt) {
+  constexpr void right(unsigned int amt)
+  {
     cursor_col += (long)amt;
     if (auto len = view.line_length(cursor_row); cursor_col > len) {
       adjust_cursor_row(1);
@@ -157,17 +175,18 @@ public:
   }
 
 private:
-  constexpr void adjust_cursor_row(long amount) {
+  constexpr void adjust_cursor_row(long amount)
+  {
 
     if (view.empty()) {
       cursor_row = 0;
       return;
     }
 
-    cursor_row =
-        std::clamp(amount + cursor_row, 0l, static_cast<long>(view.size()) - 1);
+    cursor_row = std::clamp(amount + cursor_row, 0l, static_cast<long>(view.size()) - 1);
   }
-  constexpr void do_scroll() {
+  constexpr void do_scroll()
+  {
 
     if (cursor_row >= row_offset + screen_rows) {
       row_offset = cursor_row - screen_rows + 1;
@@ -188,7 +207,8 @@ private:
       view_scrolled_cols = false;
   }
 
-  constexpr void validate_cursor_position() {
+  constexpr void validate_cursor_position()
+  {
     cursor_col = std::clamp(cursor_col, 0l, (long)view.line_length(cursor_row));
 
     do_scroll();

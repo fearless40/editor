@@ -16,12 +16,13 @@
 #include <utility>
 #include <vector>
 
-struct EditorGlobals {
+struct EditorGlobals
+{
   term::Row rows;
   term::Col cols;
   term::Row cr;
   term::Col cc;
-  bool quit_now{false};
+  bool quit_now{ false };
 };
 
 DocumentManager g_DocManager;
@@ -31,49 +32,45 @@ EditorGlobals editor_globals;
 KeyMap key_map;
 LeftGutter g_LeftGutter;
 
-void render_fixedbufferview(term::CommandBuffer &buff,
-                            FixedWidthTextBuffer &fbuf) {
+void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
+{
   term::cursor::reset_position(buff);
   for (auto [index, sv] : fbuf.line_view_index()) {
     buff.add(sv);
     // buff.add('\n');
 
-    term::cursor::position(buff, term::Row{(int)index + 1}, term::Col{1});
+    term::cursor::position(buff, term::Row{ (int)index + 1 }, term::Col{ 1 });
   }
 }
 
-void render_view(term::CommandBuffer &buff, const TextBufferView &view,
-                 int row_offset = 0, int col_offset = 0) {
+void render_view(term::CommandBuffer &buff, const TextBufferView &view, int row_offset = 0, int col_offset = 0)
+{
 
-  if (view.buffer().empty())
-    return;
+  if (view.buffer().empty()) return;
 
-  term::cursor::position(buff, term::Row{(int)row_offset + 1},
-                         term::Col{(int)col_offset + 1});
+  term::cursor::position(buff, term::Row{ (int)row_offset + 1 }, term::Col{ (int)col_offset + 1 });
 
   const auto col_size = std::to_underlying(view.window_cols());
   const auto row_size = std::to_underlying(view.window_rows());
-  for (const auto &[index, row] :
-       view.buffer().rows |
-           std::views::drop(std::to_underlying(view.row_scroll())) |
-           std::views::take(row_size) | std::views::enumerate) {
+  for (const auto &[index, row] : view.buffer().rows | std::views::drop(std::to_underlying(view.row_scroll()))
+                                    | std::views::take(row_size) | std::views::enumerate) {
 
     if (std::to_underlying(view.col_scroll()) < row.length())
-      buff.add(
-          row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
+      buff.add(row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
     // else
     // buff.add(row);
-    term::cursor::position(buff, term::Row{(int)row_offset + (int)index + 1},
-                           term::Col{(int)col_offset + 1});
+    term::cursor::position(buff, term::Row{ (int)row_offset + (int)index + 1 }, term::Col{ (int)col_offset + 1 });
   }
 }
 
-int center_left(std::size_t length) {
+int center_left(std::size_t length)
+{
   auto col = std::to_underlying(editor_globals.cols);
   return (col - length) / 2;
 }
 
-void refresh_screen() {
+void refresh_screen()
+{
 
   term::DynamicCommandBuffer buff;
   term::cursor::off(buff);
@@ -89,8 +86,7 @@ void refresh_screen() {
 
   render_view(buff, view, 0, g_LeftGutter.total_width());
 
-  term::cursor::position(buff, term::Row{(int)view.window_rows() + 1},
-                         term::Col{1});
+  term::cursor::position(buff, term::Row{ (int)view.window_rows() + 1 }, term::Col{ 1 });
 
   buff.add("Cursor  R:");
   buff.add((unsigned int)view.row());
@@ -102,28 +98,27 @@ void refresh_screen() {
   buff.add((unsigned int)view.buffer().line_length(view.row()));
 
   term::cursor::position(
-      buff, term::Row{(int)view.crow() + 1},
-      term::Col{(int)(view.ccol()) + 1 + (int)g_LeftGutter.total_width()});
+    buff, term::Row{ (int)view.crow() + 1 }, term::Col{ (int)(view.ccol()) + 1 + (int)g_LeftGutter.total_width() });
   term::cursor::on(buff);
   buff.submit();
 }
 
-enum class RequestReason { User, AppError, OSRequest };
+enum class RequestReason : std::uint8_t { User, AppError, OSRequest };
 
-void close_app(RequestReason) {
+void close_app(RequestReason)
+{
   editor_globals.quit_now = true;
 }
 
 ;
 
 // Returns false to indicate quitting
-bool process_key_presses(const term::KeyStatus &key) {
+bool process_key_presses(const term::KeyStatus &key)
+{
 
-  if (key_map.key_event(key, g_DocViews.current_view()))
-    return true;
+  if (key_map.key_event(key, g_DocViews.current_view())) return true;
 
-  if (key.key >= 32 and key.key <= 126 and
-      key.position == term::KeyPosition::released) {
+  if (key.key >= 32 and key.key <= 126 and key.position == term::KeyPosition::released) {
     g_DocViews.current_view().insert_char_at_cursor(key.key);
     return true;
   }
@@ -131,7 +126,8 @@ bool process_key_presses(const term::KeyStatus &key) {
   return false;
 }
 
-int main(int argv, char *argc[]) {
+int main(int argv, char *argc[])
+{
 
   term::TermControl tc{};
 
@@ -143,47 +139,48 @@ int main(int argv, char *argc[]) {
   else
     g_DocManager.create_empty_document();
 
-  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1,
-                         tc.width() - g_LeftGutter.total_width());
+  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width() - g_LeftGutter.total_width());
 
-  editor_globals.rows = term::Row{tc.height()};
-  editor_globals.cols = term::Col{tc.width()};
+  editor_globals.rows = term::Row{ tc.height() };
+  editor_globals.cols = term::Col{ tc.width() };
 
-#define key_once(key_code, code, specialkeys)                                  \
-  key_map.add_key((key_code),                                                  \
-                  [](const term::KeyStatus &key, TextBufferView &view) {       \
-                    code;                                                      \
-                    return KeyMap::EventContinue::consume;                     \
-                  },                                                           \
-                  specialkeys, KeyMap::Repeatability::single);
+#define key_once(key_code, code, specialkeys)              \
+  key_map.add_key((key_code),                              \
+    [](const term::KeyStatus &key, TextBufferView &view) { \
+      code;                                                \
+      return KeyMap::EventContinue::consume;               \
+    },                                                     \
+    specialkeys,                                           \
+    KeyMap::Repeatability::single);
 
-#define key_many(key_code, code, specialkeys)                                  \
-  key_map.add_key((key_code),                                                  \
-                  [](const term::KeyStatus &key, TextBufferView &view) {       \
-                    code;                                                      \
-                    return KeyMap::EventContinue::consume;                     \
-                  },                                                           \
-                  specialkeys, KeyMap::Repeatability::repeat);
+#define key_many(key_code, code, specialkeys)              \
+  key_map.add_key((key_code),                              \
+    [](const term::KeyStatus &key, TextBufferView &view) { \
+      code;                                                \
+      return KeyMap::EventContinue::consume;               \
+    },                                                     \
+    specialkeys,                                           \
+    KeyMap::Repeatability::repeat);
 
   key_map.add_key(
-      term::KeyCodes::HOME,
-      [](const term::KeyStatus &key, TextBufferView &view) {
-        view.line_home();
-        return KeyMap::EventContinue::consume;
-      },
-      SpecialKeys{0}, KeyMap::Repeatability::single);
+    term::KeyCodes::HOME,
+    [](const term::KeyStatus &key, TextBufferView &view) {
+      view.line_home();
+      return KeyMap::EventContinue::consume;
+    },
+    SpecialKeys{ 0 },
+    KeyMap::Repeatability::single);
 
-  key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{0});
+  key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
   key_once('c', refresh_screen(), SpecialKeys::alt);
   key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
-  key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{0});
-  key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{0});
-  key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{0});
-  key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{0});
-  key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{0});
-  key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(),
-           SpecialKeys{0});
-  key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{0});
+  key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
 
 #undef key_once
 #undef key_many
@@ -194,8 +191,7 @@ int main(int argv, char *argc[]) {
     tc.on_loop();
     if (tc.had_key_event()) {
       auto key_evt = tc.get_key_event();
-      if (process_key_presses(key_evt))
-        refresh_screen();
+      if (process_key_presses(key_evt)) refresh_screen();
     }
   }
 
