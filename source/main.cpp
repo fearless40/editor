@@ -8,6 +8,7 @@
 #include "term_control.hpp"
 #include "textbuffer.hpp"
 #include "types.hpp"
+#include "xy.hpp"
 #include <cstddef>
 #include <filesystem>
 #include <string_view>
@@ -130,8 +131,7 @@ int main(int argv, char *argc[])
 
   term::TermControl tc{};
 
-  g_LeftGutter.right_border_width = 1;
-  g_LeftGutter.request_width = 4;
+  g_LeftGutter.request_width = geom::Width{ 4 };
 
   if (argv >= 2)
     g_DocManager.load(argc[1]);
