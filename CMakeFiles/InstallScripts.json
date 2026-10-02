@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/adam/projects/editor/cmake_install.cmake",
+		"/home/adam/projects/editor/source/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

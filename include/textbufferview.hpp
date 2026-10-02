@@ -1,11 +1,9 @@
 #pragma once
-#include "documentview.hpp"
 #include "textbuffer.hpp"
-#include "xh.hpp"
+#include "xy.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <string_view>
-#include <utility>
 
 enum class RowSize : std::size_t {};
 enum class ColSize : std::size_t {};
