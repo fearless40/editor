@@ -58,13 +58,13 @@ struct LeftGutter
   constexpr geom::Width update_width(const TextBufferView &view)
   {
     char temp[12];
-    int start_line_nbr = std::to_underlying(view.row_scroll());
-    int end_line_nbr = std::to_underlying(view.window_rows()) + start_line_nbr;
+    int start_line_nbr = view.row_scroll();
+    int end_line_nbr = view.window_rows().underlying() + start_line_nbr;
     auto count = std::to_chars(temp, &temp[11], end_line_nbr, 10);
     auto nbr_chars = geom::Width::make(std::distance(temp, count.ptr));
     request_width = std::clamp(nbr_chars, min_width, max_width);
 
-    buff.ensure_size(request_width, end_line_nbr - start_line_nbr);
+    buff.ensure_size(request_width, geom::Height{ end_line_nbr - start_line_nbr });
 
     return request_width;
   };
@@ -73,8 +73,8 @@ struct LeftGutter
   const FixedWidthTextBuffer &raw_view(const TextBufferView &view)
   {
     char temp[12];
-    int start_line_nbr = std::to_underlying(view.row_scroll());
-    int end_line_nbr = std::to_underlying(view.window_rows()) + start_line_nbr;
+    int start_line_nbr = view.row_scroll();
+    int end_line_nbr = view.window_rows().underlying() + start_line_nbr;
     std::size_t last_char_size = 0;
     buff.buff.clear();
     for (auto i = start_line_nbr; i < end_line_nbr; ++i) {
@@ -82,7 +82,9 @@ struct LeftGutter
       // now;
       auto conres = std::to_chars(temp, &temp[11], i, 10);
       auto nbrChar = std::distance(temp, conres.ptr);
-      for (std::size_t spaceIndex = 0; spaceIndex < request_width - nbrChar; ++spaceIndex) { buff.buff.push_back(' '); }
+      for (std::size_t spaceIndex = 0; spaceIndex < request_width.underlying() - nbrChar; ++spaceIndex) {
+        buff.buff.push_back(' ');
+      }
       for (auto c : std::span<char>(temp, nbrChar)) { buff.buff.push_back(c); }
     }
 
@@ -92,7 +94,7 @@ struct LeftGutter
   // color_map colors();
   [[nodiscard]]
   constexpr unsigned int total_width() const
-  { return min_width + right_border_width; }
+  { return min_width.underlying(); }
 };
 
 using Rect = geom::TypedRect<geom::Width, geom::Height>;
@@ -100,7 +102,9 @@ using Rect = geom::TypedRect<geom::Width, geom::Height>;
 
 struct DocumentView
 {
-  Rect position;
+  using Height = geom::Height;
+  using Width = geom::Width;
+
   Header m_header;
   LeftGutter m_left;
   RightGutter m_right;
@@ -136,11 +140,11 @@ struct DocumentViewManager
   {
     views.emplace_back(doc);
     auto &d = views.back();
-    d.view.set_window(RowSize{ row_width }, ColSize{ col_width });
+    d.m_view.set_window(geom::Height::make(row_width), geom::Width::make(col_width));
     active_view_index = std::distance(views.begin(), views.end() - 1);
   }
 
-  constexpr TextBufferView &current_view() { return views[active_view_index].view; }
+  constexpr TextBufferView &current_view() { return views[active_view_index].m_view; }
 
   constexpr DocumentView &current_document() { return views[active_view_index]; }
 };

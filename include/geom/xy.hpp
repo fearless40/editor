@@ -1,3 +1,5 @@
+#pragma once
+
 #include "relative_dimension.hpp"
 #include "typed_position.hpp"
 #include "typed_scalar.hpp"

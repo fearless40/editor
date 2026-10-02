@@ -7,11 +7,9 @@
 #include "render.hpp"
 #include "term_control.hpp"
 #include "textbuffer.hpp"
-#include "textbufferview.hpp"
 #include "types.hpp"
 #include <cstddef>
 #include <filesystem>
-#include <ranges>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -50,13 +48,13 @@ void render_view(term::CommandBuffer &buff, const TextBufferView &view, int row_
 
   term::cursor::position(buff, term::Row{ (int)row_offset + 1 }, term::Col{ (int)col_offset + 1 });
 
-  const auto col_size = std::to_underlying(view.window_cols());
-  const auto row_size = std::to_underlying(view.window_rows());
-  for (const auto &[index, row] : view.buffer().rows | std::views::drop(std::to_underlying(view.row_scroll()))
-                                    | std::views::take(row_size) | std::views::enumerate) {
+  const auto col_size = view.window_cols();
+  const auto row_size = view.window_rows();
+  for (const auto &[index, row] : view.buffer().rows | std::views::drop(view.row_scroll().underlying())
+                                    | std::views::take(row_size.underlying()) | std::views::enumerate) {
 
-    if (std::to_underlying(view.col_scroll()) < row.length())
-      buff.add(row.subview(std::to_underlying(view.col_scroll()), col_size - 1));
+    if (view.col_scroll() < row.length())
+      buff.add(row.subview(view.col_scroll(), (col_size - geom::Width{ 1 }).underlying()));
     // else
     // buff.add(row);
     term::cursor::position(buff, term::Row{ (int)row_offset + (int)index + 1 }, term::Col{ (int)col_offset + 1 });
@@ -86,19 +84,20 @@ void refresh_screen()
 
   render_view(buff, view, 0, g_LeftGutter.total_width());
 
-  term::cursor::position(buff, term::Row{ (int)view.window_rows() + 1 }, term::Col{ 1 });
+  term::cursor::position(buff, term::Row{ view.window_rows().underlying() + 1 }, term::Col{ 1 });
 
   buff.add("Cursor  R:");
-  buff.add((unsigned int)view.row());
+  buff.add((unsigned int)view.cursor_row_file().underlying());
   buff.add(" C:");
-  buff.add((unsigned int)view.col());
+  buff.add((unsigned int)view.cursor_col_file().underlying());
   buff.add(" T:");
   buff.add((unsigned int)view.buffer().last_index());
   buff.add(" L:");
-  buff.add((unsigned int)view.buffer().line_length(view.row()));
+  buff.add((unsigned int)view.buffer().line_length(view.cursor_row_file()));
 
-  term::cursor::position(
-    buff, term::Row{ (int)view.crow() + 1 }, term::Col{ (int)(view.ccol()) + 1 + (int)g_LeftGutter.total_width() });
+  term::cursor::position(buff,
+    term::Row{ (int)view.cursor_row_screen() + 1 },
+    term::Col{ (int)(view.cursor_col_screen()) + 1 + (int)g_LeftGutter.total_width() });
   term::cursor::on(buff);
   buff.submit();
 }
