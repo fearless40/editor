@@ -1,4 +1,5 @@
 // #include "version.hpp"
+#include "commandbuffer.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
 #include "documentview.hpp"
@@ -62,6 +63,15 @@ void render_view(term::CommandBuffer &buff, const TextBufferView &view, int row_
   }
 }
 
+void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
+{
+  // Ignore Header, Footer, RightGutter for now
+  //
+  //
+  render_fixedbufferview(cmd, view.left_gutter());
+  render_view(cmd, view.m_view, view.m_x.to<int>(), view.m_y.to<int>());
+}
+
 int center_left(std::size_t length)
 {
   auto col = std::to_underlying(editor_globals.cols);
@@ -76,29 +86,34 @@ void refresh_screen()
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  auto &view = g_DocViews.current_view();
+  // auto &view = g_DocViews.current_view();
+  //
+  auto &doc = g_DocViews.current_document();
 
-  g_LeftGutter.update_width(view);
-  g_LeftGutter.raw_view(view);
+  // g_LeftGutter.update_width(view);
+  // g_LeftGutter.raw_view(view);
 
-  render_fixedbufferview(buff, g_LeftGutter.buff);
+  // render_fixedbufferview(buff, g_LeftGutter.buff);
 
-  render_view(buff, view, 0, g_LeftGutter.total_width());
+  // render_view(buff, view, 0, g_LeftGutter.total_width());
+  render_document_view(buff, doc);
 
-  term::cursor::position(buff, term::Row{ view.window_rows().underlying() + 1 }, term::Col{ 1 });
+  auto cur_pos = doc.cursor_position();
+
+  term::cursor::position(buff, term::Row{ doc.m_h.to<int>() + 1 }, term::Col{ 1 });
 
   buff.add("Cursor  R:");
-  buff.add((unsigned int)view.cursor_row_file().underlying());
+  buff.add((unsigned int)cur_pos.first.to<unsigned>());
   buff.add(" C:");
-  buff.add((unsigned int)view.cursor_col_file().underlying());
-  buff.add(" T:");
-  buff.add((unsigned int)view.buffer().last_index());
-  buff.add(" L:");
-  buff.add((unsigned int)view.buffer().line_length(view.cursor_row_file()));
-
+  buff.add((unsigned int)cur_pos.second.to<unsigned>());
+  // buff.add(" T:");
+  // buff.add((unsigned int)view.buffer().last_index());
+  // buff.add(" L:");
+  // buff.add((unsigned int)view.buffer().line_length(view.cursor_row_file()));
+  //
   term::cursor::position(buff,
-    term::Row{ (int)view.cursor_row_screen() + 1 },
-    term::Col{ (int)(view.cursor_col_screen()) + 1 + (int)g_LeftGutter.total_width() });
+    term::Row{ cur_pos.first.to<int>() + 1 },
+    term::Col{ cur_pos.second.to<int>() + 1};
   term::cursor::on(buff);
   buff.submit();
 }

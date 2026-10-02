@@ -15,6 +15,11 @@ template<typename TypedPositionT> struct TypedDimension
   template<std::integral value> [[nodiscard]] constexpr static type make(value val) noexcept
   { return type{ static_cast<underlying_t>(val) }; }
 
+  template<typename ValueT>
+    requires std::convertible_to<underlying_t, ValueT>
+  [[nodiscard]] constexpr ValueT to() const
+  { return static_cast<ValueT>(value); }
+
   [[nodiscard]]
   constexpr underlying_t underlying() const noexcept
   { return value; }

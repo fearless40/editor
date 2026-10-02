@@ -1,25 +1,8 @@
 #pragma once
 #include "textbuffer.hpp"
-#include "typed_scalar.hpp"
 #include "xy.hpp"
 #include <algorithm>
-#include <cstddef>
 #include <string_view>
-
-enum class RowSize : std::size_t {};
-enum class ColSize : std::size_t {};
-
-namespace detail {
-struct Cursor_Row_Tag
-{
-};
-struct Cursor_Col_Tag
-{
-};
-};// namespace detail
-
-using CursorRow = geom::TypedScalar<std::size_t, detail::Cursor_Row_Tag>;
-using CursorCol = geom::TypedScalar<std::size_t, detail::Cursor_Col_Tag>;
 
 class TextBufferView
 {
@@ -31,12 +14,12 @@ class TextBufferView
   Width m_screen_cols{ 0 };
 
   // Cursors are the actual value into the file not a visual value
-  CursorRow m_cursor_row{ 0 };
-  CursorCol m_cursor_col{ 0 };
+  Row m_cursor_row{ 0 };
+  Col m_cursor_col{ 0 };
 
   // Rowoffset is a value into the file
-  CursorRow row_offset{ 0 };
-  CursorCol col_offset{ 0 };
+  Row m_row_offset{ 0 };
+  Col m_col_offset{ 0 };
 
   bool view_scrolled_rows{ true };
   bool view_scrolled_cols{ true };
@@ -56,13 +39,13 @@ public:
 
   [[nodiscard]] bool did_view_scroll_cols() const { return view_scrolled_cols; }
 
-  [[nodiscard]] constexpr CursorRow cursor_row_file() const { return m_cursor_row; }
+  [[nodiscard]] constexpr Row cursor_row_file() const { return m_cursor_row; }
 
-  [[nodiscard]] constexpr CursorCol cursor_col_file() const { return m_cursor_col; }
+  [[nodiscard]] constexpr Col cursor_col_file() const { return m_cursor_col; }
 
-  [[nodiscard]] constexpr CursorRow cursor_row_screen() const { return (m_cursor_row - row_offset); }
+  [[nodiscard]] constexpr Row cursor_row_screen() const { return m_cursor_row - m_row_offset; }
 
-  [[nodiscard]] constexpr CursorCol cursor_col_screen() const { return (m_cursor_col - col_offset); }
+  [[nodiscard]] constexpr Col cursor_col_screen() const { return m_cursor_col - m_col_offset; }
 
   [[nodiscard]] constexpr Height window_rows() const { return m_screen_rows; }
 
@@ -70,8 +53,8 @@ public:
 
   [[nodiscard]] constexpr TextBuffer &buffer() const { return view; }
 
-  [[nodiscard]] constexpr CursorRow row_scroll() const { return row_offset; }
-  [[nodiscard]] constexpr CursorCol col_scroll() const { return col_offset; }
+  [[nodiscard]] constexpr Row row_scroll() const { return m_row_offset; }
+  [[nodiscard]] constexpr Col col_scroll() const { return m_col_offset; }
 
   constexpr void insert_char_at_cursor(char c)
   {
@@ -86,13 +69,13 @@ public:
 
     auto &value = str_o.value();
     if (value.length() == 0) {
-      view.insert_row("", m_cursor_row + 1);
+      view.insert_row("", ++m_cursor_row);
     } else {
 
       const auto end_post = std::min(value.length(), m_cursor_col.underlying());
 
       if (end_post == value.length()) {
-        view.insert_row("", m_cursor_row + 1);
+        view.insert_row("", ++m_cursor_row);
       } else {
         const std::string_view subview = value.subview(end_post);
         view.insert_row(subview, m_cursor_row + 1);
@@ -151,7 +134,7 @@ public:
 
   constexpr void line_home()
   {
-    m_cursor_col = CursorCol{ 0 };
+    m_cursor_col = Col{ 0 };
     validate_cursor_position();
   };
   constexpr void line_end()
@@ -166,7 +149,7 @@ public:
     ccol -= amt;
     if (ccol < 0) {
       adjust_cursor_row(-1);
-      m_cursor_col = CursorCol{ view.line_length(m_cursor_row) };
+      m_cursor_col = Col{ view.line_length(m_cursor_row) };
     } else {
       m_cursor_col = CursorCol::make(ccol);
     }
@@ -178,7 +161,7 @@ public:
     m_cursor_col += CursorCol::make(amt);
     if (auto len = view.line_length(m_cursor_row); m_cursor_col > len) {
       adjust_cursor_row(1);
-      m_cursor_col = CursorCol{ 0 };
+      m_cursor_col = Col{ 0 };
     }
 
     // Todo: consider putting in wrapping so if you advance by 10 characters
@@ -193,7 +176,7 @@ private:
   {
 
     if (view.empty()) {
-      m_cursor_row = CursorRow{ 0 };
+      m_cursor_row = Row{ 0 };
       return;
     }
 
@@ -203,20 +186,20 @@ private:
   constexpr void do_scroll()
   {
 
-    if (m_cursor_row >= row_offset + m_screen_rows.underlying()) {
+    if (m_cursor_row >= m_row_offset + m_screen_rows.underlying()) {
       row_offset = CursorRow::make(m_cursor_row - m_screen_rows.underlying() + 1);
       view_scrolled_rows = true;
-    } else if (m_cursor_row < row_offset) {
-      row_offset = m_cursor_row;
+    } else if (m_cursor_row < m_row_offset) {
+      m_row_offset = m_cursor_row;
       view_scrolled_rows = true;
     } else
       view_scrolled_rows = false;
 
-    if (m_cursor_col >= col_offset + m_screen_cols.underlying()) {
+    if (m_cursor_col >= m_col_offset + m_screen_cols.underlying()) {
       col_offset = CursorCol::make(m_cursor_col - m_screen_cols.underlying() + 1);
       view_scrolled_cols = true;
-    } else if (m_cursor_col < col_offset) {
-      col_offset = m_cursor_col;
+    } else if (m_cursor_col < m_col_offset) {
+      m_col_offset = m_cursor_col;
       view_scrolled_cols = true;
     } else
       view_scrolled_cols = false;
