@@ -1,9 +1,0 @@
-/home/adam/projects/editor/CMakeFiles/export_compile_commands.dir
-/home/adam/projects/editor/CMakeFiles/edit_cache.dir
-/home/adam/projects/editor/CMakeFiles/rebuild_cache.dir
-/home/adam/projects/editor/source/CMakeFiles/adam.util.dir
-/home/adam/projects/editor/source/CMakeFiles/adam.geom.dir
-/home/adam/projects/editor/source/CMakeFiles/adam.terminal.dir
-/home/adam/projects/editor/source/CMakeFiles/CppEditor.dir
-/home/adam/projects/editor/source/CMakeFiles/edit_cache.dir
-/home/adam/projects/editor/source/CMakeFiles/rebuild_cache.dir
