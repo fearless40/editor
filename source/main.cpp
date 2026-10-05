@@ -2,7 +2,7 @@
 #include "commandbuffer.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
-#include "documentview.hpp"
+// #include "documentview.hpp"
 #include "dynamiccommandbuffer.hpp"
 #include "keymap.hpp"
 #include "render.hpp"
@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+/*
 struct EditorGlobals
 {
   term::Row rows;
@@ -26,7 +27,7 @@ struct EditorGlobals
 };
 
 DocumentManager g_DocManager;
-DocumentViewManager g_DocViews;
+// DocumentViewManager g_DocViews;
 
 EditorGlobals editor_globals;
 KeyMap key_map;
@@ -140,75 +141,92 @@ bool process_key_presses(const term::KeyStatus &key)
 
   return false;
 }
+*/
+#include "strongtype.hpp"
+#include <print>
 
 int main(int argv, char *argc[])
 {
+  using X = StrongType<int, Width, AbsolutePosition>;
+  using X1 = StrongType<int, Width, AbsolutePositionBase1>;
 
-  term::TermControl tc{};
+  X x{ 1 };
 
-  g_LeftGutter.request_width = geom::Width{ 4 };
+  X1 x1 = x;
 
-  if (argv >= 2)
-    g_DocManager.load(argc[1]);
-  else
-    g_DocManager.create_empty_document();
+  X x0 = x1;
 
-  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width() - g_LeftGutter.total_width());
+  std::println("X: {}  X1: {}  X0:{}", x.underlying(), x1.underlying(), x0.underlying());
 
-  editor_globals.rows = term::Row{ tc.height() };
-  editor_globals.cols = term::Col{ tc.width() };
 
-#define key_once(key_code, code, specialkeys)              \
-  key_map.add_key((key_code),                              \
-    [](const term::KeyStatus &key, TextBufferView &view) { \
-      code;                                                \
-      return KeyMap::EventContinue::consume;               \
-    },                                                     \
-    specialkeys,                                           \
-    KeyMap::Repeatability::single);
+  return 0;
+  /*
+    term::TermControl tc{};
 
-#define key_many(key_code, code, specialkeys)              \
-  key_map.add_key((key_code),                              \
-    [](const term::KeyStatus &key, TextBufferView &view) { \
-      code;                                                \
-      return KeyMap::EventContinue::consume;               \
-    },                                                     \
-    specialkeys,                                           \
-    KeyMap::Repeatability::repeat);
+    g_LeftGutter.request_width = geom::Width{ 4 };
 
-  key_map.add_key(
-    term::KeyCodes::HOME,
-    [](const term::KeyStatus &key, TextBufferView &view) {
-      view.line_home();
-      return KeyMap::EventContinue::consume;
-    },
-    SpecialKeys{ 0 },
-    KeyMap::Repeatability::single);
+    if (argv >= 2)
+      g_DocManager.load(argc[1]);
+    else
+      g_DocManager.create_empty_document();
 
-  key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
-  key_once('c', refresh_screen(), SpecialKeys::alt);
-  key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
-  key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
+    g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width() -
+  g_LeftGutter.total_width());
 
-#undef key_once
-#undef key_many
+    editor_globals.rows = term::Row{ tc.height() };
+    editor_globals.cols = term::Col{ tc.width() };
 
-  refresh_screen();
+  #define key_once(key_code, code, specialkeys)              \
+    key_map.add_key((key_code),                              \
+      [](const term::KeyStatus &key, TextBufferView &view) { \
+        code;                                                \
+        return KeyMap::EventContinue::consume;               \
+      },                                                     \
+      specialkeys,                                           \
+      KeyMap::Repeatability::single);
 
-  while (!editor_globals.quit_now) {
-    tc.on_loop();
-    if (tc.had_key_event()) {
-      auto key_evt = tc.get_key_event();
-      if (process_key_presses(key_evt)) refresh_screen();
+  #define key_many(key_code, code, specialkeys)              \
+    key_map.add_key((key_code),                              \
+      [](const term::KeyStatus &key, TextBufferView &view) { \
+        code;                                                \
+        return KeyMap::EventContinue::consume;               \
+      },                                                     \
+      specialkeys,                                           \
+      KeyMap::Repeatability::repeat);
+
+    key_map.add_key(
+      term::KeyCodes::HOME,
+      [](const term::KeyStatus &key, TextBufferView &view) {
+        view.line_home();
+        return KeyMap::EventContinue::consume;
+      },
+      SpecialKeys{ 0 },
+      KeyMap::Repeatability::single);
+
+    key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
+    key_once('c', refresh_screen(), SpecialKeys::alt);
+    key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
+    key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{ 0 });
+    key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{ 0 });
+    key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{ 0 });
+    key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{ 0 });
+    key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
+    key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
+    key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
+
+  #undef key_once
+  #undef key_many
+
+    refresh_screen();
+
+    while (!editor_globals.quit_now) {
+      tc.on_loop();
+      if (tc.had_key_event()) {
+        auto key_evt = tc.get_key_event();
+        if (process_key_presses(key_evt)) refresh_screen();
+      }
     }
-  }
-
+  */
   return 0;
 }
 
