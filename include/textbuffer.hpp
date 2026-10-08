@@ -8,21 +8,11 @@
 #include <string_view>
 #include <vector>
 
-namespace detail {
-struct Row_Tag
-{
-};
-struct Col_Tag
-{
-};
-};// namespace detail
-
-using Row = geom::TypedPosition<std::size_t, detail::Row_Tag, geom::detail::AbsoluteUNIT>;
-using Col = geom::TypedPosition<std::size_t, detail::Col_Tag, geom::detail::AbsoluteUNIT>;
-
 
 struct TextBuffer
 {
+  using Row = geom::Row;
+  using Col = geom::Col;
   std::vector<std::string> rows;
   bool m_dirty{ false };
   [[nodiscard]] std::size_t last_index() const { return empty() ? 0 : rows.size() - 1; }
@@ -42,7 +32,7 @@ struct TextBuffer
     return 0;
   }
 
-  void remove_row(Row row)
+  void remove_row(geom::Row row)
   {
     if (!is_valid_row(row)) return;
     rows.erase(rows.begin() + row.underlying());
@@ -63,7 +53,7 @@ struct TextBuffer
   void modify_row(std::string_view data, Row row)
   {
     if (!is_valid_row(row)) return;
-    rows[row] = std::string{ data };
+    rows[static_cast<std::size_t>(row.underlying())] = std::string{ data };
     update_dirty();
   }
 
@@ -76,13 +66,13 @@ struct TextBuffer
   void append_row(const std::string_view data, Row row)
   {
     if (!is_valid_row(row)) return;
-    auto &string = rows[row];
+    auto &string = rows[static_cast<std::size_t>(row.underlying())];
     string.append(data);
     update_dirty();
   }
   const std::optional<std::string_view> get_row(std::size_t row) const
   {
-    if (!is_valid_row(row)) return {};
+    if (!is_valid_row(Row{ static_cast<Row::underlying_t>(row) })) return {};
     return { std::string_view{ rows[row] } };
   }
 

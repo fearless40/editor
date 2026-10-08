@@ -1,7 +1,8 @@
 #pragma once
+#include "dimensions.hpp"
+#include "strongtype.hpp"
 #include <cstdint>
 #include <utility>
-
 namespace term {
 
 enum class Row : int {};
@@ -9,46 +10,41 @@ enum class Col : int {};
 
 using Position = std::pair<Row, Col>;
 
-enum class KeyPosition : std::uint8_t {
-  unknown = 0,
-  pressed,
-  released,
-  repeat
-};
+enum class KeyPosition : std::uint8_t { unknown = 0, pressed, released, repeat };
 
 enum class KeyCodes {
   ESCAPE = 27,
   ENTER = 13,
   TAB = 9,
   BACKSPACE = 127,
-  INSERT = 2,    //~
-  DELETE = 3,    //~
-  LEFT = 61111,  // d
-  RIGHT = 61112, // c
-  UP = 61113,    // a
-  DOWN = 61114,  // B
-  PAGE_UP = 5,   //~
-  PAGE_DOWN = 6, //~
-  HOME = 61115,  // H or 7 ~
-  END = 61116,   // F or 8 ~
+  INSERT = 2,//~
+  DELETE = 3,//~
+  LEFT = 61111,// d
+  RIGHT = 61112,// c
+  UP = 61113,// a
+  DOWN = 61114,// B
+  PAGE_UP = 5,//~
+  PAGE_DOWN = 6,//~
+  HOME = 61115,// H or 7 ~
+  END = 61116,// F or 8 ~
   CAPS_LOCK = 57358,
   SCROLL_LOCK = 57359,
   NUM_LOCK = 57360,
   PRINT_SCREEN = 57361,
   PAUSE = 57362,
   MENU = 57363,
-  F1 = 61117, // P or 11 ~
-  F2 = 61118, // Q or 12 ~
-  F3 = 13,    //~
-  F4 = 61119, // S or 14 ~
-  F5 = 15,    //~
-  F6 = 17,    //~
-  F7 = 18,    //~
-  F8 = 19,    //~
-  F9 = 20,    //~
-  F10 = 21,   //~
-  F11 = 23,   //~
-  F12 = 24,   //~
+  F1 = 61117,// P or 11 ~
+  F2 = 61118,// Q or 12 ~
+  F3 = 13,//~
+  F4 = 61119,// S or 14 ~
+  F5 = 15,//~
+  F6 = 17,//~
+  F7 = 18,//~
+  F8 = 19,//~
+  F9 = 20,//~
+  F10 = 21,//~
+  F11 = 23,//~
+  F12 = 24,//~
   F13 = 57376,
   F14 = 57377,
   F15 = 57378,
@@ -131,7 +127,8 @@ enum class KeyCodes {
 
 };
 
-struct KeyStatus {
+struct KeyStatus
+{
   KeyPosition position;
   uint8_t shift : 1;
   uint8_t ctl : 1;
@@ -142,7 +139,8 @@ struct KeyStatus {
   constexpr operator bool() { return key != 0; }
 };
 
-struct MouseStatus {
+struct MouseStatus
+{
   enum class Button : std::uint16_t {
     Left = 0,
     Middle = 0b1,
@@ -175,4 +173,4 @@ struct MouseStatus {
   constexpr bool right_up() { return press == 0 && button == Button::Right; }
 };
 
-} // namespace term
+}// namespace term

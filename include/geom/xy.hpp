@@ -1,36 +1,26 @@
 #pragma once
 
-#include "relative_dimension.hpp"
-#include "typed_position.hpp"
-#include "typed_scalar.hpp"
+#include "dimensions.hpp"
+#include "strongtype.hpp"
+#include "units.hpp"
 
 namespace geom {
 
-namespace detail {
-  struct AbsoluteUNIT
-  {
-  };
-  struct X_TAG
-  {
-  };
-  struct Y_TAG
-  {
-  };
 
-  struct Area_TAG
-  {
-  };
-}// namespace detail
+// clang-format off
+struct X_tag { };
+struct Y_tag { };
+struct Row_tag{};
+struct Col_tag{};
+// clang-format on
 
-using X = TypedPosition<int, detail::X_TAG, detail::AbsoluteUNIT>;
-using Y = TypedPosition<int, detail::Y_TAG, detail::AbsoluteUNIT>;
+using X = StrongType<int, Position<X_tag>, AbsolutePosition>;
+using Y = StrongType<int, Position<Y_tag>, AbsolutePosition>;
+using Row = Y;
+using Col = X;
 
+using Width = StrongType<int, Distance<X_tag>, AbsolutePosition>;
+using Height = StrongType<int, Distance<Y_tag>, AbsolutePosition>;
 
-using Width = TypedDimension<X>;
-using Height = TypedDimension<Y>;
-using Area = TypedScalar<long, detail::Area_TAG>;
-
-constexpr Area operator*(Width w, Height h)
-{ return Area{ static_cast<Area::underlying_t>(w.underlying()) * static_cast<Area::underlying_t>(h.underlying()) }; }
 
 }// namespace geom

@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-/*
+
 struct EditorGlobals
 {
   term::Row rows;
@@ -142,7 +142,7 @@ bool process_key_presses(const term::KeyStatus &key)
 
   return false;
 }
-*/
+
 #include "dimensions.hpp"
 #include "strongtype.hpp"
 #include "units.hpp"
