@@ -148,16 +148,34 @@ bool process_key_presses(const term::KeyStatus &key)
 #include "units.hpp"
 #include <print>
 
+struct Rows
+{
+};
+
+struct Cols
+{
+};
+
 int main(int argv, char *argc[])
 {
-  using L = geom::StrongType<int, geom::Distance, geom::AbsolutePosition>;
-  using X1 = geom::StrongType<int, geom::Position, geom::AbsolutePosition>;
+
+  using L = geom::StrongType<int, geom::Distance<Rows>, geom::AbsolutePosition>;
+
+  using CL = geom::StrongType<int, geom::Distance<Cols>, geom::AbsolutePosition>;
+
+  using CP = geom::StrongType<int, geom::Position<Cols>, geom::AbsolutePosition>;
+  using P = geom::StrongType<int, geom::Position<Rows>, geom::AbsolutePosition>;
 
   L x{ 5 };
 
-  X1 x1{ 1 };
+  P x1{ 1 };
 
-  X1 x3{ 2 };
+  P x3{ 2 };
+
+  CL c1{ 1 };
+  CP cp{ 1 };
+
+  auto c2 = c1 + cp;
 
   auto x4 = x * 2;
 
