@@ -51,15 +51,6 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
         }
       }())
   {}
-  // }())
-  // {
-  //   if constexpr (is_convertable_to_c<type, T>) {
-  //     value = T::unit_t::template ConvertTo<type, T>(val);
-  //   } else if (is_convertable_from_c<type, T>) {
-  //     value = unit_t::template ConvertFrom<type, T>(val);
-  //   }
-  // }
-
 
   constexpr StrongType(const type &other) = default;
 
@@ -69,15 +60,6 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
   constexpr underlying_t underlying() const noexcept { return value; }
 
 
-  // Conversion
-  // constexpr operator underlying_t() const noexcept { return value; }
-  // template<typename OtherT> operator OtherT() const = delete;// prevent other conversions
-  //
-  // template<typename ValueT>
-  //   requires std::convertible_to<underlying_t, ValueT>
-  // [[nodiscard]] constexpr ValueT to() const noexcept
-  // { return static_cast<ValueT>(value); }
-  //
   // Comparison
   constexpr std::strong_ordering operator<=>(type const &other) const noexcept = default;
 
@@ -86,8 +68,6 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
 
   template<typename OtherT> constexpr std::strong_ordering operator<=>(OtherT const &other) const noexcept = delete;
 
-  // constexpr bool operator==(type const &other) const noexcept = default;
-  // constexpr bool operator!=(type const &other) const noexcept = default;
 
   constexpr type &operator+=(type const &other) noexcept
   {
@@ -180,8 +160,13 @@ struct AbsolutePositionBase1
   }
 };
 
-struct Width
+
+struct Position
 {
   static constexpr bool is_dimension = true;
 };
 
+struct Width
+{
+  static constexpr bool is_dimension = true;
+};
