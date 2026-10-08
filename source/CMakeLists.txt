@@ -42,6 +42,9 @@ target_sources( adam.geom
       ${ROOT_INCLUDE}/geom/relative_dimension.hpp
       ${ROOT_INCLUDE}/geom/typed_position.hpp
       ${ROOT_INCLUDE}/geom/strongtype.hpp
+      ${ROOT_INCLUDE}/geom/units.hpp
+      ${ROOT_INCLUDE}/geom/concepts.hpp
+      ${ROOT_INCLUDE}/geom/dimensions.hpp
 )
 
 

@@ -1,31 +1,7 @@
 #pragma once
+#include "concepts.hpp"
 #include <compare>
-#include <concepts>
-#include <type_traits>
-
-template<typename T>
-concept is_unit = T::is_unit_v;
-
-template<typename T>
-concept numeric_c = std::is_integral_v<T> || std::is_floating_point_v<T>;
-
-template<typename T>
-concept is_dimension_c = T::is_dimension_v;
-
-template<typename T>
-concept is_strong_type_c = T::is_strong_type_v;
-
-template<typename SelfT, typename OtherT>
-concept is_convertable_to_c = requires { OtherT::unit_t::template ConvertTo<SelfT, OtherT>; };
-
-template<typename SelfT, typename OtherT>
-concept is_convertable_from_c = requires { SelfT::unit_t::template ConvertFrom<SelfT, OtherT>; };
-
-
-template<typename T, typename U>
-concept dimension_is_same_c = std::is_same_v<T, U> and is_dimension_c<T>;
-
-
+namespace geom {
 template<typename UnderlyingT, typename DimensionT, typename UnitT> struct StrongType
 {
   static constexpr bool is_strong_type_v = true;
@@ -109,20 +85,6 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
     return *this;
   }
 
-  // template<is_strong_type_c T>
-  //   requires is_convertable_to_c<type, T>
-  // constexpr type &operator=(const T &value_) noexcept
-  // {
-  //   value = T::unit_t::ConvertTo(value_);
-  //   // value = value_;
-  //   return *this;
-  // }
-  //
-  // constexpr type &operator=(const type &other) noexcept = default;
-  //
-  friend constexpr type operator+(const type &left, const type &right) noexcept
-  { return type{ left.value + right.value }; }
-
 
   friend constexpr type operator-(const type &left, const type &right) noexcept
   {
@@ -134,39 +96,39 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
   }
 };
 
-
-struct AbsolutePosition
+template<is_strong_type_c LhsT, is_strong_type_c RhsT>
+  requires(
+    requires(const LhsT &l, const RhsT &r) { LhsT::dimension_t::template plus<LhsT, RhsT>(l, r); }
+    || requires(const LhsT &l, const RhsT &r) { RhsT::dimension_t::template plus<LhsT, RhsT>(l, r); })
+constexpr auto operator+(const LhsT &left, const RhsT &right) noexcept
 {
-  static constexpr bool is_unit_v = true;
-};
-
-struct AbsolutePositionBase1
-{
-  static constexpr bool is_unit_v = true;
-
-  template<is_strong_type_c OtherT, is_strong_type_c SelfT> static constexpr auto ConvertTo(const SelfT &val)
-  {
-    return /*StrongType<typename OtherT::underlying_t, typename OtherT::dimension_t, typename OtherT::unit_t>{*/
-      val.underlying() - 1;
-    // };
+  if constexpr (requires { LhsT::dimension_t::template plus<LhsT, RhsT>; }) {
+    return LhsT::dimension_t::plus(left, right);
+  } else {
+    return RhsT::dimension_t::plus(left, right);
   }
+}
 
 
-  template<is_strong_type_c SelfT, is_strong_type_c OtherT> static constexpr auto ConvertFrom(const OtherT &val)
-  {
-    return /*StrongType<typename SelfT::underlying_t, typename SelfT::dimension_t, AbsolutePositionBase1>{*/
-      val.underlying() + 1;
-    // };
+template<is_strong_type_c LhsT, is_strong_type_c RhsT>
+  requires(
+    requires(const LhsT &l, const RhsT &r) { LhsT::dimension_t::template multi<LhsT, RhsT>(l, r); }
+    || requires(const LhsT &l, const RhsT &r) { RhsT::dimension_t::template multi<LhsT, RhsT>(l, r); })
+constexpr auto operator*(const LhsT &left, const RhsT &right) noexcept
+{
+  if constexpr (requires { LhsT::dimension_t::template multi<LhsT, RhsT>; }) {
+    return LhsT::dimension_t::multi(left, right);
+  } else {
+    return RhsT::dimension_t::multi(left, right);
   }
-};
+}
 
 
-struct Position
-{
-  static constexpr bool is_dimension = true;
-};
+// DimenstionT * Sclar Value = DimenstionT
+template<is_strong_type_c LhsT, typename RhsT>
+  requires(requires(const LhsT &l, const RhsT &r) { LhsT::dimension_t::template multi<LhsT, RhsT>(l, r); }
+           && std::is_same_v<typename LhsT::underlying_t, RhsT>)
+constexpr auto operator*(const LhsT &left, const RhsT right) noexcept
+{ return LhsT::dimension_t::multi(left, right); }
 
-struct Width
-{
-  static constexpr bool is_dimension = true;
-};
+}// namespace geom

@@ -10,6 +10,7 @@
 #include "textbuffer.hpp"
 #include "types.hpp"
 #include "xy.hpp"
+#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <string_view>
@@ -142,21 +143,30 @@ bool process_key_presses(const term::KeyStatus &key)
   return false;
 }
 */
+#include "dimensions.hpp"
 #include "strongtype.hpp"
+#include "units.hpp"
 #include <print>
 
 int main(int argv, char *argc[])
 {
-  using X = StrongType<int, Width, AbsolutePosition>;
-  using X1 = StrongType<int, Width, AbsolutePositionBase1>;
+  using L = geom::StrongType<int, geom::Distance, geom::AbsolutePosition>;
+  using X1 = geom::StrongType<int, geom::Position, geom::AbsolutePosition>;
 
-  X x{ 1 };
+  L x{ 5 };
 
-  X1 x1 = x;
+  X1 x1{ 1 };
 
-  X x0 = x1;
+  X1 x3{ 2 };
 
-  std::println("X: {}  X1: {}  X0:{}", x.underlying(), x1.underlying(), x0.underlying());
+  auto x4 = x * 2;
+
+  // auto x2 = X1::dimension_t::plus(x1, x);
+
+  auto x2 = x + x1;
+
+
+  std::println("X: {}  X1: {}  X2:{}  X4:{}", x.underlying(), x1.underlying(), x2.underlying(), x4.value);
 
 
   return 0;
