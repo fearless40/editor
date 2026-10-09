@@ -2,28 +2,23 @@
 #include "commandbuffer.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
-// #include "documentview.hpp"
+#include "documentview.hpp"
 #include "dynamiccommandbuffer.hpp"
 #include "keymap.hpp"
-#include "render.hpp"
+// #include "render.hpp"
 #include "term_control.hpp"
 #include "textbuffer.hpp"
 #include "types.hpp"
 #include "xy.hpp"
-#include <algorithm>
 #include <cstddef>
-#include <filesystem>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 
 struct EditorGlobals
 {
-  term::Row rows;
-  term::Col cols;
-  term::Row cr;
-  term::Col cc;
+  term::Row rows{ 1 };
+  term::Col cols{ 1 };
   bool quit_now{ false };
 };
 
@@ -32,7 +27,6 @@ DocumentManager g_DocManager;
 
 EditorGlobals editor_globals;
 KeyMap key_map;
-LeftGutter g_LeftGutter;
 
 void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
 {
@@ -143,118 +137,74 @@ bool process_key_presses(const term::KeyStatus &key)
   return false;
 }
 
-#include "dimensions.hpp"
-#include "strongtype.hpp"
-#include "units.hpp"
-#include <print>
-
-struct Rows
-{
-};
-
-struct Cols
-{
-};
 
 int main(int argv, char *argc[])
 {
 
-  using L = geom::StrongType<int, geom::Distance<Rows>, geom::AbsolutePosition>;
+  term::TermControl tc{};
 
-  using CL = geom::StrongType<int, geom::Distance<Cols>, geom::AbsolutePosition>;
+  g_LeftGutter.request_width = geom::Width{ 4 };
 
-  using CP = geom::StrongType<int, geom::Position<Cols>, geom::AbsolutePosition>;
-  using P = geom::StrongType<int, geom::Position<Rows>, geom::AbsolutePosition>;
+  if (argv >= 2)
+    g_DocManager.load(argc[1]);
+  else
+    g_DocManager.create_empty_document();
 
-  L x{ 5 };
+  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width() - g_LeftGutter.total_width());
 
-  P x1{ 1 };
+  editor_globals.rows = term::Row{ tc.height() };
+  editor_globals.cols = term::Col{ tc.width() };
 
-  P x3{ 2 };
+#define key_once(key_code, code, specialkeys)              \
+  key_map.add_key((key_code),                              \
+    [](const term::KeyStatus &key, TextBufferView &view) { \
+      code;                                                \
+      return KeyMap::EventContinue::consume;               \
+    },                                                     \
+    specialkeys,                                           \
+    KeyMap::Repeatability::single);
 
-  CL c1{ 1 };
-  CP cp{ 1 };
+#define key_many(key_code, code, specialkeys)              \
+  key_map.add_key((key_code),                              \
+    [](const term::KeyStatus &key, TextBufferView &view) { \
+      code;                                                \
+      return KeyMap::EventContinue::consume;               \
+    },                                                     \
+    specialkeys,                                           \
+    KeyMap::Repeatability::repeat);
 
-  auto c2 = c1 + cp;
+  key_map.add_key(
+    term::KeyCodes::HOME,
+    [](const term::KeyStatus &key, TextBufferView &view) {
+      view.line_home();
+      return KeyMap::EventContinue::consume;
+    },
+    SpecialKeys{ 0 },
+    KeyMap::Repeatability::single);
 
-  auto x4 = x * 2;
+  key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
+  key_once('c', refresh_screen(), SpecialKeys::alt);
+  key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
+  key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
 
-  // auto x2 = X1::dimension_t::plus(x1, x);
+#undef key_once
+#undef key_many
 
-  auto x2 = x + x1;
+  refresh_screen();
 
-
-  std::println("X: {}  X1: {}  X2:{}  X4:{}", x.underlying(), x1.underlying(), x2.underlying(), x4.value);
-
-
-  return 0;
-  /*
-    term::TermControl tc{};
-
-    g_LeftGutter.request_width = geom::Width{ 4 };
-
-    if (argv >= 2)
-      g_DocManager.load(argc[1]);
-    else
-      g_DocManager.create_empty_document();
-
-    g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width() -
-  g_LeftGutter.total_width());
-
-    editor_globals.rows = term::Row{ tc.height() };
-    editor_globals.cols = term::Col{ tc.width() };
-
-  #define key_once(key_code, code, specialkeys)              \
-    key_map.add_key((key_code),                              \
-      [](const term::KeyStatus &key, TextBufferView &view) { \
-        code;                                                \
-        return KeyMap::EventContinue::consume;               \
-      },                                                     \
-      specialkeys,                                           \
-      KeyMap::Repeatability::single);
-
-  #define key_many(key_code, code, specialkeys)              \
-    key_map.add_key((key_code),                              \
-      [](const term::KeyStatus &key, TextBufferView &view) { \
-        code;                                                \
-        return KeyMap::EventContinue::consume;               \
-      },                                                     \
-      specialkeys,                                           \
-      KeyMap::Repeatability::repeat);
-
-    key_map.add_key(
-      term::KeyCodes::HOME,
-      [](const term::KeyStatus &key, TextBufferView &view) {
-        view.line_home();
-        return KeyMap::EventContinue::consume;
-      },
-      SpecialKeys{ 0 },
-      KeyMap::Repeatability::single);
-
-    key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
-    key_once('c', refresh_screen(), SpecialKeys::alt);
-    key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
-    key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{ 0 });
-    key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{ 0 });
-    key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{ 0 });
-    key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{ 0 });
-    key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
-    key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
-    key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
-
-  #undef key_once
-  #undef key_many
-
-    refresh_screen();
-
-    while (!editor_globals.quit_now) {
-      tc.on_loop();
-      if (tc.had_key_event()) {
-        auto key_evt = tc.get_key_event();
-        if (process_key_presses(key_evt)) refresh_screen();
-      }
+  while (!editor_globals.quit_now) {
+    tc.on_loop();
+    if (tc.had_key_event()) {
+      auto key_evt = tc.get_key_event();
+      if (process_key_presses(key_evt)) refresh_screen();
     }
-  */
+  }
   return 0;
 }
 

@@ -85,15 +85,22 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
     return *this;
   }
 
-
-  friend constexpr type operator-(const type &left, const type &right) noexcept
+  constexpr type &operator-() noexcept
+    requires allow_negation_c<dimension_t>
   {
-    if constexpr (std::is_unsigned_v<underlying_t>) {
-      if (right.value > left.value) { return type{ 0 }; }
-    }
-
-    return type{ left.value - right.value };
+    value = -value;
+    return *this;
   }
+
+
+  // friend constexpr type operator-(const type &left, const type &right) noexcept
+  // {
+  //   if constexpr (std::is_unsigned_v<underlying_t>) {
+  //     if (right.value > left.value) { return type{ 0 }; }
+  //   }
+  //
+  //   return type{ left.value - right.value };
+  // }
 };
 
 template<is_strong_type_c LhsT, is_strong_type_c RhsT>
@@ -109,7 +116,22 @@ constexpr auto operator+(const LhsT &left, const RhsT &right) noexcept
   }
 }
 
+// StrongType - StrongType
+template<is_strong_type_c LhsT, is_strong_type_c RhsT>
+  requires(
+    requires(const LhsT &l, const RhsT &r) { LhsT::dimension_t::template minus<LhsT, RhsT>(l, r); }
+    || requires(const LhsT &l, const RhsT &r) { RhsT::dimension_t::template minus<LhsT, RhsT>(l, r); })
+constexpr auto operator-(const LhsT &left, const RhsT &right) noexcept
+{
+  if constexpr (requires { LhsT::dimension_t::template minus<LhsT, RhsT>; }) {
+    return LhsT::dimension_t::minus(left, right);
+  } else {
+    return RhsT::dimension_t::minus(left, right);
+  }
+}
 
+
+// StrongType * StrongType
 template<is_strong_type_c LhsT, is_strong_type_c RhsT>
   requires(
     requires(const LhsT &l, const RhsT &r) { LhsT::dimension_t::template multi<LhsT, RhsT>(l, r); }

@@ -1,8 +1,8 @@
 #pragma once
 #include "document.hpp"
+#include "editortypes.hpp"
 #include "rect.hpp"
 #include "textbufferview.hpp"
-#include "xy.hpp"
 #include <cstddef>
 #include <ranges>
 
@@ -33,7 +33,7 @@ struct FixedWidthTextBuffer
 
   constexpr auto line_view_index() { return std::views::enumerate(line_view()); }
 
-  void ensure_size(geom::Width new_width, geom::Height nbr_lines)
+  void ensure_size(Width new_width, Height nbr_lines)
   {
     auto max_size = new_width * nbr_lines;
     if (max_size.underlying() > buff.capacity()) { buff.reserve(max_size.underlying()); }
@@ -60,13 +60,13 @@ struct LeftGutter
   constexpr geom::Width update_width(const TextBufferView &view)
   {
     char temp[12];
-    int start_line_nbr = view.row_scroll().to<int>();
-    int end_line_nbr = view.window_rows().to<int>() + start_line_nbr;
-    auto count = std::to_chars(temp, &temp[11], end_line_nbr, 10);
-    auto nbr_chars = geom::Width::make(std::distance(temp, count.ptr));
+    auto start_line_nbr = view.row_scroll();
+    auto end_line_nbr = view.window_rows() + start_line_nbr;
+    auto count = std::to_chars(temp, &temp[11], end_line_nbr.underlying(), 10);
+    auto nbr_chars = ColOffset{ static_cast<ColOffset::underlying_t>(std::distance(temp, count.ptr)) };
     request_width = std::clamp(nbr_chars, min_width, max_width);
 
-    buff.ensure_size(request_width, geom::Height{ end_line_nbr - start_line_nbr });
+    buff.ensure_size(request_width, Height{ end_line_nbr - start_line_nbr });
 
     return request_width;
   };
@@ -75,14 +75,14 @@ struct LeftGutter
   FixedWidthTextBuffer &raw_view(const TextBufferView &view)
   {
     char temp[12];
-    int start_line_nbr = view.row_scroll().to<int>();
-    int end_line_nbr = view.window_rows().underlying() + start_line_nbr;
+    auto start_line_nbr = view.row_scroll();
+    auto end_line_nbr = view.window_rows() + start_line_nbr;
     std::size_t last_char_size = 0;
     buff.buff.clear();
     for (auto i = start_line_nbr; i < end_line_nbr; ++i) {
       // Could be slow using push_back for everything however will use it for
       // now;
-      auto conres = std::to_chars(temp, &temp[11], i, 10);
+      auto conres = std::to_chars(temp, &temp[11], i.underlying(), 10);
       auto nbrChar = std::distance(temp, conres.ptr);
       for (std::size_t spaceIndex = 0; spaceIndex < request_width.underlying() - nbrChar; ++spaceIndex) {
         buff.buff.push_back(' ');
@@ -147,10 +147,9 @@ struct DocumentView
 
   [[nodiscard]] constexpr std::pair<X, Y> cursor_position() const
   {
-    auto cx = X{ m_view.cursor_row_screen().to<X::underlying_t>() + m_x.underlying() + m_left_gutter_border.underlying()
-                 + m_left.width().underlying() };
-    auto cy = Y{ m_y.underlying() + m_view.cursor_col_screen().to<Y::underlying_t>() };
-    return { cx, cy };
+    auto cx = geom::origin(m_view.cursor_col_screen()) + geom::origin(m_x) + m_left_gutter_border + m_left.width();
+    auto cy = geom::origin(m_y) + geom::origin(m_view.cursor_row_screen());
+    return { cx.underlying(), cy.underlying() };
   }
 
   [[nodiscard]] constexpr auto left_gutter() -> FixedWidthTextBuffer &

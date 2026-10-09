@@ -1,12 +1,12 @@
 #pragma once
-#include "dimensions.hpp"
-#include "strongtype.hpp"
+#include "units.hpp"
+#include "xy.hpp"
 #include <cstdint>
 #include <utility>
 namespace term {
 
-enum class Row : int {};
-enum class Col : int {};
+using Row = geom::StrongType<int, geom::Position<geom::Y_tag>, geom::AbsolutePositionBase1>;
+using Col = geom::StrongType<int, geom::Position<geom::X_tag>, geom::AbsolutePositionBase1>;
 
 using Position = std::pair<Row, Col>;
 

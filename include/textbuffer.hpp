@@ -3,6 +3,7 @@
 #include "typed_position.hpp"
 #include "xy.hpp"
 #include <cstddef>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -17,7 +18,7 @@ struct TextBuffer
   bool m_dirty{ false };
   [[nodiscard]] std::size_t last_index() const { return empty() ? 0 : rows.size() - 1; }
   [[nodiscard]] constexpr bool empty() const { return rows.empty(); }
-  [[nodiscard]] constexpr std::size_t size() const { return rows.size(); }
+  [[nodiscard]] constexpr auto size() const { return std::ssize(rows); }
   [[nodiscard]] constexpr bool dirty() const { return m_dirty; }
 
   constexpr void update_dirty() { m_dirty = true; }
@@ -25,11 +26,11 @@ struct TextBuffer
 
   [[nodiscard]] constexpr bool is_valid_row(Row row) const { return row.underlying() < size(); }
 
-  [[nodiscard]] constexpr std::size_t line_length(Row row) const
+  [[nodiscard]] constexpr auto line_length(Row row) const
   {
-    if (is_valid_row(row)) { return rows[row.underlying()].length(); }
+    if (is_valid_row(row)) { return std::ssize(rows[row.underlying()]); }
 
-    return 0;
+    return 0L;
   }
 
   void remove_row(geom::Row row)
@@ -70,10 +71,10 @@ struct TextBuffer
     string.append(data);
     update_dirty();
   }
-  const std::optional<std::string_view> get_row(std::size_t row) const
+  const std::optional<std::string_view> get_row(Row row) const
   {
-    if (!is_valid_row(Row{ static_cast<Row::underlying_t>(row) })) return {};
-    return { std::string_view{ rows[row] } };
+    if (!is_valid_row(row)) return {};
+    return { std::string_view{ rows[row.underlying()] } };
   }
 
   void insert_char(Row row, Col col, char value)
@@ -86,7 +87,7 @@ struct TextBuffer
 
     if (!is_valid_row(row)) return;
 
-    auto &string = rows[row];
+    auto &string = rows[row.underlying()];
     if (col.underlying() >= string.size())
       string.append(&value, 1);
     else
@@ -94,12 +95,13 @@ struct TextBuffer
     update_dirty();
   }
 
-  void remove_char(std::size_t row, std::size_t col)
+  void remove_char(Row row, Col col)
   {
-    if (!is_valid_row(row) || col >= line_length(row)) return;
+    if (!is_valid_row(row) || col.underlying() >= line_length(row)) return;
 
-    auto &string = rows[row];
-    string.erase(col, 1);
+
+    auto &string = rows[row.underlying()];
+    string.erase(col.underlying(), 1);
     update_dirty();
   }
 };
