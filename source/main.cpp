@@ -4,15 +4,13 @@
 #include "document.hpp"
 #include "documentview.hpp"
 #include "dynamiccommandbuffer.hpp"
+#include "editortypes.hpp"
 #include "keymap.hpp"
-// #include "render.hpp"
+#include "render.hpp"
 #include "term_control.hpp"
 #include "textbuffer.hpp"
 #include "types.hpp"
-#include "xy.hpp"
-#include <cstddef>
 #include <string_view>
-#include <utility>
 
 
 struct EditorGlobals
@@ -23,7 +21,7 @@ struct EditorGlobals
 };
 
 DocumentManager g_DocManager;
-// DocumentViewManager g_DocViews;
+DocumentViewManager g_DocViews;
 
 EditorGlobals editor_globals;
 KeyMap key_map;
@@ -35,27 +33,32 @@ void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbu
     buff.add(sv);
     // buff.add('\n');
 
-    term::cursor::position(buff, term::Row{ (int)index + 1 }, term::Col{ 1 });
+    term::cursor::position(buff, RowOffset{ static_cast<RowOffset::underlying_t>(index) }, ColOffset{ 0 });
   }
 }
 
-void render_view(term::CommandBuffer &buff, const TextBufferView &view, int row_offset = 0, int col_offset = 0)
+void render_view(term::CommandBuffer &buff,
+  const TextBufferView &view,
+  term::Row row_offset = term::Row{ 1 },
+  term::Col col_offset = term::Col{ 1 })
 {
 
   if (view.buffer().empty()) return;
 
-  term::cursor::position(buff, term::Row{ (int)row_offset + 1 }, term::Col{ (int)col_offset + 1 });
+  term::cursor::position(buff, row_offset, col_offset);
 
   const auto col_size = view.window_cols();
   const auto row_size = view.window_rows();
   for (const auto &[index, row] : view.buffer().rows | std::views::drop(view.row_scroll().underlying())
                                     | std::views::take(row_size.underlying()) | std::views::enumerate) {
 
-    if (view.col_scroll() < row.length())
-      buff.add(row.subview(view.col_scroll(), (col_size - geom::Width{ 1 }).underlying()));
+    const auto col_scroll = view.col_scroll().underlying();
+
+    if (col_scroll < std::ssize(row)) buff.add(row.subview(col_scroll, (col_size - Width{ 1 }).underlying()));
     // else
     // buff.add(row);
-    term::cursor::position(buff, term::Row{ (int)row_offset + (int)index + 1 }, term::Col{ (int)col_offset + 1 });
+    auto const set_row_pos = origin(row_offset) + term::Height{ (term::Height::underlying_t)index + 1 };
+    term::cursor::position(buff, set_row_pos, col_offset);
   }
 }
 
@@ -65,13 +68,7 @@ void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
   //
   //
   render_fixedbufferview(cmd, view.left_gutter());
-  render_view(cmd, view.m_view, view.m_x.to<int>(), view.m_y.to<int>());
-}
-
-int center_left(std::size_t length)
-{
-  auto col = std::to_underlying(editor_globals.cols);
-  return (col - length) / 2;
+  render_view(cmd, view.m_view, view.m_x, view.m_y);
 }
 
 void refresh_screen()
@@ -96,20 +93,18 @@ void refresh_screen()
 
   auto cur_pos = doc.cursor_position();
 
-  term::cursor::position(buff, term::Row{ doc.m_h.to<int>() + 1 }, term::Col{ 1 });
+  term::cursor::reset_position(buff);
 
   buff.add("Cursor  R:");
-  buff.add((unsigned int)cur_pos.first.to<unsigned>());
+  buff.add((unsigned int)cur_pos.second.underlying());
   buff.add(" C:");
-  buff.add((unsigned int)cur_pos.second.to<unsigned>());
+  buff.add((unsigned int)cur_pos.first.underlying());
   // buff.add(" T:");
   // buff.add((unsigned int)view.buffer().last_index());
   // buff.add(" L:");
   // buff.add((unsigned int)view.buffer().line_length(view.cursor_row_file()));
   //
-  term::cursor::position(buff,
-    term::Row{ cur_pos.first.to<int>() + 1 },
-    term::Col{ cur_pos.second.to<int>() + 1};
+  term::cursor::position(buff, cur_pos.second, cur_pos.first);
   term::cursor::on(buff);
   buff.submit();
 }
@@ -143,14 +138,13 @@ int main(int argv, char *argc[])
 
   term::TermControl tc{};
 
-  g_LeftGutter.request_width = geom::Width{ 4 };
 
   if (argv >= 2)
     g_DocManager.load(argc[1]);
   else
     g_DocManager.create_empty_document();
 
-  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width() - g_LeftGutter.total_width());
+  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width());
 
   editor_globals.rows = term::Row{ tc.height() };
   editor_globals.cols = term::Col{ tc.width() };

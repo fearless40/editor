@@ -1,4 +1,5 @@
 #pragma once
+#include "dimensions.hpp"
 #include "document.hpp"
 #include "editortypes.hpp"
 #include "rect.hpp"
@@ -142,14 +143,15 @@ struct DocumentView
     m_y = y;
     m_w = w;
     m_h = h;
-    m_view.set_window(h, w - m_left.width() - m_left_gutter_border);
+    m_view.set_window(h, w - m_left.width() - m_left_gutter_border - m_left.min_width);
   }
 
-  [[nodiscard]] constexpr std::pair<X, Y> cursor_position() const
+  [[nodiscard]] constexpr std::pair<Row, Col> cursor_position() const
+
   {
     auto cx = geom::origin(m_view.cursor_col_screen()) + geom::origin(m_x) + m_left_gutter_border + m_left.width();
     auto cy = geom::origin(m_y) + geom::origin(m_view.cursor_row_screen());
-    return { cx.underlying(), cy.underlying() };
+    return { geom::origin(cy), geom::origin(cx) };
   }
 
   [[nodiscard]] constexpr auto left_gutter() -> FixedWidthTextBuffer &
@@ -169,11 +171,11 @@ struct DocumentViewManager
     if (index < views.size()) active_view_index = index;
   }
 
-  void create_view(Document *doc, std::size_t row_width, std::size_t col_width)
+  void create_view(Document *doc, Height row_height, Width col_width)
   {
     views.emplace_back(doc);
     auto &d = views.back();
-    d.m_view.set_window(geom::Height::make(row_width), geom::Width::make(col_width));
+    d.set_position(0, 0, col_width, row_height);
     active_view_index = std::distance(views.begin(), views.end() - 1);
   }
 

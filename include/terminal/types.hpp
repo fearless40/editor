@@ -1,4 +1,5 @@
 #pragma once
+#include "strongtype.hpp"
 #include "units.hpp"
 #include "xy.hpp"
 #include <cstdint>
@@ -7,6 +8,11 @@ namespace term {
 
 using Row = geom::StrongType<int, geom::Position<geom::Y_tag>, geom::AbsolutePositionBase1>;
 using Col = geom::StrongType<int, geom::Position<geom::X_tag>, geom::AbsolutePositionBase1>;
+using Height =
+  geom::StrongType<typename Row::underlying_t, typename geom::Distance<Row::dimension_t>, typename Row::unit_t>;
+
+using Width =
+  geom::StrongType<typename Col::underlying_t, typename geom::Distance<Col::dimension_t>, typename Col::unit_t>;
 
 using Position = std::pair<Row, Col>;
 

@@ -7,7 +7,8 @@
 #include <unistd.h>
 namespace term {
 
-struct CommandBuffer {
+struct CommandBuffer
+{
   virtual ~CommandBuffer() = default;
   virtual bool add(std::string_view command) = 0;
   virtual bool add(char) = 0;
@@ -21,23 +22,19 @@ struct CommandBuffer {
   virtual std::size_t capacity() const = 0;
   constexpr bool CSI() { return add("\x1b["); }
 
-  static constexpr void write(std::string_view data) {
-    ::write(STDOUT_FILENO, data.data(), data.length());
-  }
+  static constexpr void write(std::string_view data) { ::write(STDOUT_FILENO, data.data(), data.length()); }
 
   // Will always clear the response buffer
-  static bool read_response(const CommandBuffer &command,
-                            CommandBuffer &response);
+  static bool read_response(const CommandBuffer &command, CommandBuffer &response);
 };
 
-template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
+template<unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer
+{
   char m_data[BUFFSIZE];
-  unsigned char write_position{0};
+  unsigned char write_position{ 0 };
 
-  constexpr std::string_view as_string_view() const override {
-    return std::string_view{m_data,
-                            static_cast<std::size_t>(write_position) - 1};
-  }
+  constexpr std::string_view as_string_view() const override
+  { return std::string_view{ m_data, static_cast<std::size_t>(write_position) - 1 }; }
 
   constexpr char *data() override { return m_data; }
 
@@ -50,7 +47,8 @@ template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
   constexpr void adjust_positions(unsigned int len) { write_position += len; }
 
   // Auto submits on your behalf if buffer is full
-  constexpr bool add(const std::string_view command) override {
+  constexpr bool add(const std::string_view command) override
+  {
     if (command.length() + write_position >= BUFFSIZE) {
       submit_and_clear();
 
@@ -65,36 +63,33 @@ template <unsigned char BUFFSIZE> struct SizedCommandBuffer : CommandBuffer {
     return true;
   }
 
-  constexpr bool add(char c) override {
-    if (write_position + 1 >= BUFFSIZE)
-      return false;
+  constexpr bool add(char c) override
+  {
+    if (write_position + 1 >= BUFFSIZE) return false;
     m_data[write_position] = c;
     adjust_positions(1);
     return true;
   }
 
-  constexpr bool add(unsigned int number) override {
-    if (write_position + 4 > BUFFSIZE) {
-      return false;
-    }
+  constexpr bool add(unsigned int number) override
+  {
+    if (write_position + 4 > BUFFSIZE) { return false; }
 
     auto endWrite = digits::to_chars(&m_data[write_position], number);
 
-    auto length = static_cast<unsigned int>(
-        std::distance(&m_data[write_position], endWrite));
+    auto length = static_cast<unsigned int>(std::distance(&m_data[write_position], endWrite));
 
     adjust_positions(length);
 
     return true;
   }
 
-  void submit_and_clear() override {
+  void submit_and_clear() override
+  {
     submit();
     clear();
   }
-  void submit() const override {
-    ::write(STDOUT_FILENO, &m_data, write_position);
-  }
+  void submit() const override { ::write(STDOUT_FILENO, &m_data, write_position); }
 };
 
-} // namespace term
+}// namespace term

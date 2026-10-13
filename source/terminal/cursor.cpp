@@ -5,16 +5,18 @@
 
 namespace term::cursor {
 
-void position(term::CommandBuffer &buff, Row r, Col c) {
+void position(term::CommandBuffer &buff, Row r, Col c)
+{
 
   buff.CSI();
-  buff.add(static_cast<unsigned int>(std::to_underlying(r)));
+  buff.add((unsigned int)r.underlying());
   buff.add(';');
-  buff.add(static_cast<unsigned int>(std::to_underlying(c)));
+  buff.add((unsigned int)c.underlying());
   buff.add('H');
 }
 
-std::optional<Position> get_position() {
+std::optional<Position> get_position()
+{
 
   SizedCommandBuffer<8> command;
   SizedCommandBuffer<32> response;
@@ -26,4 +28,4 @@ std::optional<Position> get_position() {
 
   return parsers::cursor_position(response.as_string_view());
 }
-} // namespace term::cursor
+}// namespace term::cursor

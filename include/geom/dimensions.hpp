@@ -126,9 +126,17 @@ template<typename TAG_T> struct Position : helpers::DimensionMulti
 };
 
 
-// Converts a Position to a distance by subtracting the origin stored in Units
+// Origin Function poorly named but adds or subtracts the Origin from a position or a distance to convert them to each
+// other. Converts a Position to a distance by subtracting the origin stored in Units
 template<is_strong_type_c LhsT>
   requires concepts::strongtype_dimension_is_position_c<LhsT>
 constexpr auto origin(const LhsT &lhs) noexcept
 { return lhs - LhsT{ LhsT::unit_t::template origin<typename LhsT::underlying_t> }; }
+
+// Converts a Distance to a position by adding the origin stored in Units
+template<is_strong_type_c LhsT>
+  requires concepts::strongtype_dimension_is_distance_c<LhsT>
+constexpr auto origin(const LhsT &lhs) noexcept
+  -> StrongType<typename LhsT::underlying_t, Position<typename LhsT::dimension_t::tag_t>, typename LhsT::unit_t>
+{ return lhs.value + LhsT::unit_t::template origin<typename LhsT::underlying_t>; }
 }// namespace geom

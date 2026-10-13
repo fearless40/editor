@@ -1,7 +1,7 @@
 #pragma once
 
 #include "commandbuffer.hpp"
-#include "image.hpp"
+// #include "image.hpp"
 #include "utility.hpp"
 #include <span>
 #include <string_view>
@@ -11,7 +11,7 @@
 using namespace std::string_view_literals;
 
 namespace term {
-
+/*
 namespace details {
 
   template<class PXFormat>
@@ -132,7 +132,7 @@ namespace details {
   // if constexpr ( typename PXFormat::is_ASCII ) {
 
 }// namespace details
-
+*/
 inline void clear_screen(CommandBuffer &buffer)
 {
   buffer.CSI();
