@@ -94,7 +94,7 @@ public:
 
   constexpr void delete_char_to_right()
   {
-    right(1);
+    move_cursor_horz(1);
     delete_char_to_left();
   }
 
@@ -125,16 +125,28 @@ public:
     validate_cursor_position();
   }
 
-  constexpr void up(RowOffset amt)
+
+  constexpr void move_cursor_horz(ColOffset amt)
   {
-    adjust_cursor_row(-amt);
+    m_cursor_col = m_cursor_col + amt;
+    if (m_cursor_col < 0) {
+      adjust_cursor_row(-1);
+      m_cursor_col = static_cast<Col::underlying_t>(view.line_length(m_cursor_row));
+    } else if (auto len = static_cast<Col::underlying_t>(view.line_length(m_cursor_row)); m_cursor_col > len) {
+      adjust_cursor_row(1);
+      m_cursor_col = Col{ 0 };
+    }
+
+    // Todo: consider putting in wrapping so if you advance by 10 characters
+    // and you have a line length of 5 cursor would be on character 5 of the
+    // next line.
+
     validate_cursor_position();
   }
 
-  constexpr void down(RowOffset amt)
+  constexpr void move_cursor_vert(RowOffset amt)
   {
     adjust_cursor_row(amt);
-
     validate_cursor_position();
   }
 
@@ -146,32 +158,6 @@ public:
   constexpr void line_end()
   {
     m_cursor_col = static_cast<Col::underlying_t>(view.line_length(m_cursor_row));
-    validate_cursor_position();
-  }
-
-  constexpr void left(ColOffset amt)
-  {
-    m_cursor_col = m_cursor_col - amt;
-    if (m_cursor_col < 0) {
-      adjust_cursor_row(-1);
-      m_cursor_col = static_cast<Col::underlying_t>(view.line_length(m_cursor_row));
-    }
-
-    validate_cursor_position();
-  };
-
-  constexpr void right(ColOffset amt)
-  {
-    m_cursor_col = m_cursor_col + amt;
-    if (auto len = static_cast<Col::underlying_t>(view.line_length(m_cursor_row)); m_cursor_col > len) {
-      adjust_cursor_row(1);
-      m_cursor_col = Col{ 0 };
-    }
-
-    // Todo: consider putting in wrapping so if you advance by 10 characters
-    // and you have a line length of 5 cursor would be on character 5 of the
-    // next line.
-
     validate_cursor_position();
   }
 

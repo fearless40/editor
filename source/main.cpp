@@ -10,6 +10,7 @@
 #include "term_control.hpp"
 #include "textbuffer.hpp"
 #include "types.hpp"
+#include <iterator>
 #include <string_view>
 
 
@@ -33,7 +34,7 @@ void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbu
     buff.add(sv);
     // buff.add('\n');
 
-    term::cursor::position(buff, RowOffset{ static_cast<RowOffset::underlying_t>(index) }, ColOffset{ 0 });
+    term::cursor::position(buff, Row{ static_cast<RowOffset::underlying_t>(index) }, Col{ 0 });
   }
 }
 
@@ -53,12 +54,15 @@ void render_view(term::CommandBuffer &buff,
                                     | std::views::take(row_size.underlying()) | std::views::enumerate) {
 
     const auto col_scroll = view.col_scroll().underlying();
+    const auto len = std::clamp((int)std::ssize(row) - col_scroll, 0, view.window_cols().underlying());
 
-    if (col_scroll < std::ssize(row)) buff.add(row.subview(col_scroll, (col_size - Width{ 1 }).underlying()));
-    // else
-    // buff.add(row);
-    auto const set_row_pos = origin(row_offset) + term::Height{ (term::Height::underlying_t)index + 1 };
-    term::cursor::position(buff, set_row_pos, col_offset);
+
+    auto const set_row_pos = row_offset.value + index;
+
+    buff.add((unsigned int)set_row_pos);
+    buff.add("->");
+    buff.add(row.subview(col_scroll, len));
+    term::cursor::position(buff, term::Row{ (int)set_row_pos }, col_offset);
   }
 }
 
@@ -68,7 +72,8 @@ void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
   //
   //
   render_fixedbufferview(cmd, view.left_gutter());
-  render_view(cmd, view.m_view, view.m_x, view.m_y);
+  term::cursor::reset_position(cmd);
+  render_view(cmd, view.m_view, view.m_y, view.get_buffer_col());
 }
 
 void refresh_screen()
@@ -79,32 +84,30 @@ void refresh_screen()
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  // auto &view = g_DocViews.current_view();
-  //
   auto &doc = g_DocViews.current_document();
 
-  // g_LeftGutter.update_width(view);
-  // g_LeftGutter.raw_view(view);
-
-  // render_fixedbufferview(buff, g_LeftGutter.buff);
-
-  // render_view(buff, view, 0, g_LeftGutter.total_width());
   render_document_view(buff, doc);
 
   auto cur_pos = doc.cursor_position();
 
-  term::cursor::reset_position(buff);
+  term::cursor::position(buff, origin(origin(editor_globals.rows)), Col{ 0 });
 
   buff.add("Cursor  R:");
-  buff.add((unsigned int)cur_pos.second.underlying());
-  buff.add(" C:");
   buff.add((unsigned int)cur_pos.first.underlying());
+  buff.add(" ViewR: ");
+  buff.add((unsigned int)doc.m_view.cursor_row_file().underlying());
+  buff.add(" C:");
+  buff.add((unsigned int)cur_pos.second.underlying());
+  buff.add(" ViewC: ");
+  buff.add((unsigned int)doc.m_view.cursor_col_file().underlying());
+  buff.add(" RowScroll: ");
+  buff.add((unsigned int)doc.m_view.row_scroll().underlying());
   // buff.add(" T:");
   // buff.add((unsigned int)view.buffer().last_index());
   // buff.add(" L:");
   // buff.add((unsigned int)view.buffer().line_length(view.cursor_row_file()));
   //
-  term::cursor::position(buff, cur_pos.second, cur_pos.first);
+  term::cursor::position(buff, cur_pos.first, cur_pos.second);
   term::cursor::on(buff);
   buff.submit();
 }
@@ -179,10 +182,10 @@ int main(int argv, char *argc[])
   key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
   key_once('c', refresh_screen(), SpecialKeys::alt);
   key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
-  key_many(term::KeyCodes::UP, view.up(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::DOWN, view.down(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::LEFT, view.left(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::RIGHT, view.right(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::UP, view.move_cursor_vert(-1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::DOWN, view.move_cursor_vert(1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::LEFT, view.move_cursor_horz(-1), SpecialKeys{ 0 });
+  key_many(term::KeyCodes::RIGHT, view.move_cursor_horz(1), SpecialKeys{ 0 });
   key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
   key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
   key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });

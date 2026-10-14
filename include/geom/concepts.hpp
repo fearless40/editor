@@ -22,6 +22,7 @@ concept is_convertable_from_c = requires { SelfT::unit_t::template ConvertFrom<S
 
 
 template<typename T, typename U>
+
 concept dimension_is_same_c = std::is_same_v<T, U> and is_dimension_c<T>;
 
 namespace concepts {

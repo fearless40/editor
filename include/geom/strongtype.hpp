@@ -17,8 +17,9 @@ template<typename UnderlyingT, typename DimensionT, typename UnitT> struct Stron
   {}
 
   template<is_strong_type_c T>
-    requires is_convertable_to_c<type, T> || is_convertable_from_c<type, T>
-  constexpr StrongType(const T &val)
+    requires is_convertable_to_c<type, T>
+             || is_convertable_from_c<type, T> && dimension_is_same_c<typename T::dimension_t, dimension_t>
+             constexpr StrongType(const T &val)
     : value([&]() {
         if constexpr (is_convertable_to_c<type, T>) {
           return T::unit_t::template ConvertTo<type, T>(val);

@@ -136,6 +136,11 @@ struct DocumentView
 
   explicit DocumentView(Document *doc) : document(doc), m_view(doc->m_buffer) {}
 
+  [[nodiscard]] constexpr Col get_buffer_col() const noexcept { return origin(m_left_gutter_border + m_left.width()); };
+
+  // [[nodiscard]] constexpr Col get_buffer_row() const noexcept { return origin(m_left_gutter_border + m_left.width());
+  // };
+
   void set_position(X x, Y y, Width w, Height h)
   // pre(w > 1) pre(h > 1) pre(x >= 0) pre(y >= 0)
   {
@@ -143,7 +148,7 @@ struct DocumentView
     m_y = y;
     m_w = w;
     m_h = h;
-    m_view.set_window(h, w - m_left.width() - m_left_gutter_border - m_left.min_width);
+    m_view.set_window(h, w - m_left.width() - m_left_gutter_border);
   }
 
   [[nodiscard]] constexpr std::pair<Row, Col> cursor_position() const
