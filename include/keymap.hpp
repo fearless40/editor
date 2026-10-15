@@ -1,6 +1,10 @@
+#pragma once
+
 #include "enum.hpp"
 #include "types.hpp"
+#include <algorithm>
 #include <functional>
+#include <utility>
 
 struct TextBufferView;
 
@@ -21,7 +25,7 @@ public:
   enum struct EventContinue { consume, resume };
   enum struct Repeatability { single, repeat };
 
-  using keyFN = std::function_ref<EventContinue(const term::KeyStatus &key, TextBufferView &view)>;
+  using keyFN = std::copyable_function<EventContinue(const term::KeyStatus &key, TextBufferView &view)>;
 
 private:
   struct Mapping
@@ -54,6 +58,7 @@ private:
   std::vector<key_map> continous_map;
   std::vector<key_map> release_map;
   std::vector<keyFN> functions;
+  keyFN m_else;
 
   template<typename Self> constexpr auto &select_map(this Self &&self, term::KeyPosition pos)
   {
@@ -74,7 +79,7 @@ private:
   }
 
 public:
-  bool key_event(const term::KeyStatus &key, TextBufferView &view) const
+  bool key_event(const term::KeyStatus &key, TextBufferView &view)
   {
     auto keyID = make_key_integer(key.key, from_key_status(key));
     auto &vec = select_map(key.position);
@@ -84,15 +89,28 @@ public:
       }
     }
 
+    if (m_else) {
+      auto con = m_else(key, view);
+      if (con == EventContinue::consume) return true;
+    }
+
     return false;
   }
 
 private:
   void _add_key(keyFN &&keyfn, Repeatability repeat, unsigned int key_integer)
   {
-    auto fn_index = create_fn_index(std::forward<keyFN>(keyfn));
+    // Allow overwriting existing keys
+
     auto &vec = select_map(repeat);
-    vec.emplace_back(key_integer, fn_index);
+    auto fit = std::ranges::find(vec, key_integer, &key_map::key);
+    if (fit != vec.end()) {
+      functions[std::distance(vec.begin(), fit)] = std::forward<keyFN>(keyfn);
+    } else {
+      auto fn_index = create_fn_index(std::forward<keyFN>(keyfn));
+      auto &vec = select_map(repeat);
+      vec.emplace_back(key_integer, fn_index);
+    }
   }
 
 public:
@@ -101,4 +119,6 @@ public:
 
   void add_key(char ascii, keyFN &&keyfn, SpecialKeys flags, Repeatability repeat = Repeatability::single)
   { _add_key(std::forward<keyFN>(keyfn), repeat, make_key_integer(0xFF & ascii, flags)); }
+
+  void on_nomatch(keyFN &&keyfn) { m_else = std::forward<keyFN>(keyfn); }
 };

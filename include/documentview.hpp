@@ -3,11 +3,8 @@
 #include "document.hpp"
 #include "editortypes.hpp"
 #include "rect.hpp"
-#include "soa.hpp"
-#include "soamemorylayout.hpp"
 #include "textbufferview.hpp"
 #include <cstddef>
-#include <cstdint>
 #include <ranges>
 
 
@@ -174,34 +171,4 @@ struct DocumentView
     m_left.update_width(m_view);
     return m_left.raw_view(m_view);
   }
-};
-
-struct DocumentViewManager
-{
-  enum class KeyMapIndex : unsigned { def = 0 };
-  enum class Visible : uint8_t { visible = 1, hidden = 2 };
-
-  using SOAData_T = util::soa::SOA<util::soa::memory_layout::DynamicArray, DocumentView, KeyMapIndex, Visible>;
-  using Iterator = typename SOAData_T::Iterator;
-
-  SOAData_T m_views;
-
-  // std::vector<DocumentView> views;
-  Iterator active_view_index;
-
-  void set_active_view(Iterator index)
-  {
-    if (index.index() < m_views.size()) { active_view_index = index; }
-  }
-
-  void create_view(Document *doc, Height row_height, Width col_width)
-  {
-    m_views.push_back(DocumentView{ doc }, KeyMapIndex::def, Visible::visible);
-    auto &d = m_views.back<DocumentView>();
-    d.set_position(0, 0, col_width, row_height);
-    active_view_index = m_views.end() - 1;
-  }
-
-  constexpr DocumentView &current_document() { return active_view_index.get<DocumentView>(); }
-  constexpr TextBufferView &current_view() { return current_document().m_view; }
 };

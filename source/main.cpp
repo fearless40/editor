@@ -3,12 +3,14 @@
 #include "cursor.hpp"
 #include "document.hpp"
 #include "documentview.hpp"
+#include "documentviews.hpp"
 #include "dynamiccommandbuffer.hpp"
 #include "editortypes.hpp"
 #include "keymap.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
 #include "textbuffer.hpp"
+#include "textbufferview.hpp"
 #include "types.hpp"
 #include <iterator>
 #include <string_view>
@@ -22,7 +24,7 @@ struct EditorGlobals
 };
 
 DocumentManager g_DocManager;
-DocumentViewManager g_DocViews;
+DocumentViews g_DocViews;
 
 EditorGlobals editor_globals;
 KeyMap key_map;
@@ -122,17 +124,12 @@ void close_app(RequestReason)
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key)
 {
-
-  if (key_map.key_event(key, g_DocViews.current_view())) return true;
-
-  if (key.key >= 32 and key.key <= 126 and key.position == term::KeyPosition::pressed) {
-    g_DocViews.current_view().insert_char_at_cursor(key.key);
-    return true;
-  }
-
-  return false;
+  auto &ckeymap = g_DocViews.current_keymap();
+  return ckeymap.key_event(key, g_DocViews.current_view());
 }
 
+
+void close_system_input_buffer(bool user_agreed) {}
 
 int main(int argv, char *argc[])
 {
@@ -150,8 +147,8 @@ int main(int argv, char *argc[])
   editor_globals.rows = term::Row{ tc.height() };
   editor_globals.cols = term::Col{ tc.width() };
 
-#define key_once(key_code, code, specialkeys)              \
-  key_map.add_key((key_code),                              \
+#define key_once(km, key_code, code, specialkeys)          \
+  km.add_key((key_code),                                   \
     [](const term::KeyStatus &key, TextBufferView &view) { \
       code;                                                \
       return KeyMap::EventContinue::consume;               \
@@ -159,8 +156,8 @@ int main(int argv, char *argc[])
     specialkeys,                                           \
     KeyMap::Repeatability::single);
 
-#define key_many(key_code, code, specialkeys)              \
-  key_map.add_key((key_code),                              \
+#define key_many(km, key_code, code, specialkeys)          \
+  km.add_key((key_code),                                   \
     [](const term::KeyStatus &key, TextBufferView &view) { \
       code;                                                \
       return KeyMap::EventContinue::consume;               \
@@ -177,16 +174,34 @@ int main(int argv, char *argc[])
     SpecialKeys{ 0 },
     KeyMap::Repeatability::single);
 
-  key_once(term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
-  key_once('c', refresh_screen(), SpecialKeys::alt);
-  key_once('q', close_app(RequestReason::User), SpecialKeys::alt);
-  key_many(term::KeyCodes::UP, view.move_cursor_vert(-1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::DOWN, view.move_cursor_vert(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::LEFT, view.move_cursor_horz(-1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::RIGHT, view.move_cursor_horz(1), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
-  key_many(term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
+  key_once(key_map, term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
+  key_once(key_map, 'c', refresh_screen(), SpecialKeys::alt);
+  key_once(key_map, 'q', close_app(RequestReason::User), SpecialKeys::alt);
+  key_many(key_map, term::KeyCodes::UP, view.move_cursor_vert(-1), SpecialKeys{ 0 });
+  key_many(key_map, term::KeyCodes::DOWN, view.move_cursor_vert(1), SpecialKeys{ 0 });
+  key_many(key_map, term::KeyCodes::LEFT, view.move_cursor_horz(-1), SpecialKeys{ 0 });
+  key_many(key_map, term::KeyCodes::RIGHT, view.move_cursor_horz(1), SpecialKeys{ 0 });
+  key_many(key_map, term::KeyCodes::DELETE, view.delete_char_to_right(), SpecialKeys{ 0 });
+  key_many(key_map, term::KeyCodes::BACKSPACE, view.delete_char_to_left(), SpecialKeys{ 0 });
+  key_many(key_map, term::KeyCodes::ENTER, view.insert_enter(), SpecialKeys{ 0 });
+
+  key_map.on_nomatch([](const term::KeyStatus &key, TextBufferView &view) {
+    if (key.key >= 32 and key.key <= 126 and key.position == term::KeyPosition::pressed) {
+      view.insert_char_at_cursor(key.key);
+      return KeyMap::EventContinue::consume;
+    }
+    return KeyMap::EventContinue::resume;
+  });
+
+  auto defKeyMap = g_DocViews.add_keymap(key_map);
+  {
+    auto kmSpecial{ key_map };
+    key_once(kmSpecial, term::KeyCodes::ENTER, ::close_system_input_buffer(true), SpecialKeys{ 0 });
+
+    key_once(kmSpecial, term::KeyCodes::ESCAPE, ::close_system_input_buffer(false), SpecialKeys{ 0 });
+    auto specialmap = g_DocViews.add_keymap(kmSpecial);
+  }
+
 
 #undef key_once
 #undef key_many
@@ -202,77 +217,3 @@ int main(int argv, char *argc[])
   }
   return 0;
 }
-
-// OLD CODE
-
-// bool key_press_continous(const term::KeyStatus &key) {
-//   if (key.position != term::KeyPosition::pressed)
-//     return false;
-//
-//   if (key.key == std::to_underlying(term::KeyCodes::UP)) {
-//     editor_globals.view.up(1);
-//     return true;
-//     // tem::cursor::up(1);
-//   }
-//   if (key.key == std::to_underlying(term::KeyCodes::LEFT)) {
-//     // term::cursor::left(1);
-//     editor_globals.view.left(1);
-//     return true;
-//   }
-//   if (key.key == std::to_underlying(term::KeyCodes::DOWN)) {
-//     editor_globals.view.down(1);
-//     return true;
-//     // term::cursor::down(1);
-//   }
-//   if (key.key == std::to_underlying(term::KeyCodes::RIGHT)) {
-//     // term::cursor::right(1);
-//     editor_globals.view.right(1);
-//     return true;
-//   }
-//
-//   if (key.key == std::to_underlying(term::KeyCodes::DELETE)) {
-//     editor_globals.view.delete_char_to_right();
-//     return true;
-//   }
-//
-//   if (key.key == std::to_underlying(term::KeyCodes::BACKSPACE)) {
-//     editor_globals.view.delete_char_to_left();
-//     return true;
-//   }
-//
-//   if (key.key == std::to_underlying(term::KeyCodes::ENTER)) {
-//     editor_globals.view.insert_enter();
-//     return true;
-//   }
-//   return false;
-// }
-//
-//
-//
-// bool key_press_only_once(const term::KeyStatus &key) {
-//   if (key.position != term::KeyPosition::released)
-//     return false;
-//
-//   if (key.key == 'q' && key.alt == true) {
-//     close_app(RequestReason::User);
-//     return true;
-//   }
-//
-//   // if (key.key == std::to_underlying(term::KeyCodes::HOME)) {
-//   //   editor_globals.view.line_home();
-//   //   refresh_screen();
-//   //   return true;
-//   // }
-//
-//   if (key.key == std::to_underlying(term::KeyCodes::END)) {
-//     editor_globals.view.line_end();
-//     return true;
-//   }
-//
-//   if (key.key == 'c' && key.alt == true) {
-//     refresh_screen();
-//     return true;
-//   }
-//
-//   return false;
-// }
