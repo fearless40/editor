@@ -46,7 +46,6 @@ void render_view(term::CommandBuffer &buff,
 
   if (view.buffer().empty()) return;
 
-  term::cursor::position(buff, row_offset, col_offset);
 
   const auto col_size = view.window_cols();
   const auto row_size = view.window_rows();
@@ -59,10 +58,8 @@ void render_view(term::CommandBuffer &buff,
 
     auto const set_row_pos = row_offset.value + index;
 
-    buff.add((unsigned int)set_row_pos);
-    buff.add("->");
-    buff.add(row.subview(col_scroll, len));
     term::cursor::position(buff, term::Row{ (int)set_row_pos }, col_offset);
+    if (std::ssize(row) > col_scroll) { buff.add(row.subview(col_scroll, len)); }
   }
 }
 
