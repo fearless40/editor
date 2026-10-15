@@ -27,6 +27,7 @@ DocumentViewManager g_DocViews;
 EditorGlobals editor_globals;
 KeyMap key_map;
 
+
 void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
 {
   term::cursor::reset_position(buff);
@@ -44,12 +45,12 @@ void render_view(term::CommandBuffer &buff,
   term::Col col_offset = term::Col{ 1 })
 {
 
-  if (view.buffer().empty()) return;
+  if (view.buffer()->empty()) return;
 
 
   const auto col_size = view.window_cols();
   const auto row_size = view.window_rows();
-  for (const auto &[index, row] : view.buffer().rows | std::views::drop(view.row_scroll().underlying())
+  for (const auto &[index, row] : view.buffer()->rows | std::views::drop(view.row_scroll().underlying())
                                     | std::views::take(row_size.underlying()) | std::views::enumerate) {
 
     const auto col_scroll = view.col_scroll().underlying();
@@ -124,7 +125,7 @@ bool process_key_presses(const term::KeyStatus &key)
 
   if (key_map.key_event(key, g_DocViews.current_view())) return true;
 
-  if (key.key >= 32 and key.key <= 126 and key.position == term::KeyPosition::released) {
+  if (key.key >= 32 and key.key <= 126 and key.position == term::KeyPosition::pressed) {
     g_DocViews.current_view().insert_char_at_cursor(key.key);
     return true;
   }

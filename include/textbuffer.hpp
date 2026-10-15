@@ -1,6 +1,5 @@
 #pragma once
 
-#include "typed_position.hpp"
 #include "xy.hpp"
 #include <cstddef>
 #include <iterator>
@@ -31,6 +30,13 @@ struct TextBuffer
     if (is_valid_row(row)) { return std::ssize(rows[row.underlying()]); }
 
     return 0L;
+  }
+
+  void clear()
+  {
+    m_dirty = true;
+    rows.clear();
+    rows.emplace_back();
   }
 
   void remove_row(geom::Row row)
@@ -71,7 +77,7 @@ struct TextBuffer
     string.append(data);
     update_dirty();
   }
-  const std::optional<std::string_view> get_row(Row row) const
+  [[nodiscard]] std::optional<std::string_view> get_row(Row row) const
   {
     if (!is_valid_row(row)) return {};
     return { std::string_view{ rows[row.underlying()] } };

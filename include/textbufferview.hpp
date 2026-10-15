@@ -14,7 +14,7 @@ class TextBufferView
   using ColOffset = geom::Width;
   using Height = geom::Height;
   using Width = geom::Width;
-  TextBuffer &view;
+  TextBuffer *m_view;
 
   Height m_screen_rows{ 0 };
   Width m_screen_cols{ 0 };
@@ -31,9 +31,14 @@ class TextBufferView
   bool view_scrolled_cols{ true };
 
 public:
-  explicit TextBufferView(TextBuffer &buffer) : view(buffer) {};
+  explicit TextBufferView(TextBuffer *buffer) : m_view(buffer) {};
+  TextBufferView(TextBufferView &&) = default;
+  TextBufferView(TextBufferView &) = default;
+  constexpr TextBufferView &operator=(const TextBufferView &) = default;
+  constexpr TextBufferView &operator=(TextBufferView &&) = default;
 
-  void set_view(TextBuffer &buffer) { view = buffer; }
+
+  void set_view(TextBuffer *buffer) { m_view = buffer; }
 
   constexpr void set_window(Height rows, Width cols)
   {
@@ -57,35 +62,35 @@ public:
 
   [[nodiscard]] constexpr Width window_cols() const { return m_screen_cols; }
 
-  [[nodiscard]] constexpr TextBuffer &buffer() const { return view; }
+  [[nodiscard]] constexpr TextBuffer *buffer() const { return m_view; }
 
   [[nodiscard]] constexpr RowOffset row_scroll() const { return m_row_offset; }
   [[nodiscard]] constexpr ColOffset col_scroll() const { return m_col_offset; }
 
   constexpr void insert_char_at_cursor(char c)
   {
-    view.insert_char(m_cursor_row.underlying(), m_cursor_col.underlying(), c);
+    m_view->insert_char(m_cursor_row.underlying(), m_cursor_col.underlying(), c);
     ++m_cursor_col;
   }
 
   constexpr void insert_enter()
   {
-    auto str_o = view.get_row(m_cursor_row.underlying());
+    auto str_o = m_view->get_row(m_cursor_row.underlying());
     if (!str_o) { return; }
 
     auto &value = str_o.value();
     if (value.length() == 0) {
-      view.insert_row("", ++m_cursor_row);
+      m_view->insert_row("", ++m_cursor_row);
     } else {
 
       const auto end_post = std::min(std::ssize(value), (long)m_cursor_col.underlying());
 
       if (end_post == value.length()) {
-        view.insert_row("", ++m_cursor_row);
+        m_view->insert_row("", ++m_cursor_row);
       } else {
         const std::string_view subview = value.subview(end_post);
-        view.insert_row(subview, m_cursor_row + RowOffset{ 1 });
-        view.modify_row(value.subview(0, end_post), m_cursor_row);
+        m_view->insert_row(subview, m_cursor_row + RowOffset{ 1 });
+        m_view->modify_row(value.subview(0, end_post), m_cursor_row);
       }
     }
     adjust_cursor_row(1);
@@ -103,11 +108,11 @@ public:
     if (m_cursor_col == 0 and m_cursor_row == 0) return;
 
     if (m_cursor_col > 0) {
-      view.remove_char(m_cursor_row, m_cursor_col - ColOffset{ 1 });
+      m_view->remove_char(m_cursor_row, m_cursor_col - ColOffset{ 1 });
       --m_cursor_col;
     } else {
 
-      auto str_o = view.get_row(m_cursor_row);
+      auto str_o = m_view->get_row(m_cursor_row);
       if (!str_o) { return; }
 
       auto &string = str_o.value();
@@ -116,9 +121,9 @@ public:
       //   view.remove_row(cursor_row);
       //   adjust_cursor_row(-1);
       // } else {
-      m_cursor_col = static_cast<Col::underlying_t>(view.line_length(m_cursor_row - ColOffset{ 1 }));
-      view.append_row(string, m_cursor_row - RowOffset{ 1 });
-      view.remove_row(m_cursor_row);
+      m_cursor_col = static_cast<Col::underlying_t>(m_view->line_length(m_cursor_row - ColOffset{ 1 }));
+      m_view->append_row(string, m_cursor_row - RowOffset{ 1 });
+      m_view->remove_row(m_cursor_row);
       adjust_cursor_row(-1);
       // }
     }
@@ -131,8 +136,8 @@ public:
     m_cursor_col = m_cursor_col + amt;
     if (m_cursor_col < 0) {
       adjust_cursor_row(-1);
-      m_cursor_col = static_cast<Col::underlying_t>(view.line_length(m_cursor_row));
-    } else if (auto len = static_cast<Col::underlying_t>(view.line_length(m_cursor_row)); m_cursor_col > len) {
+      m_cursor_col = static_cast<Col::underlying_t>(m_view->line_length(m_cursor_row));
+    } else if (auto len = static_cast<Col::underlying_t>(m_view->line_length(m_cursor_row)); m_cursor_col > len) {
       adjust_cursor_row(1);
       m_cursor_col = Col{ 0 };
     }
@@ -157,7 +162,7 @@ public:
   };
   constexpr void line_end()
   {
-    m_cursor_col = static_cast<Col::underlying_t>(view.line_length(m_cursor_row));
+    m_cursor_col = static_cast<Col::underlying_t>(m_view->line_length(m_cursor_row));
     validate_cursor_position();
   }
 
@@ -165,12 +170,13 @@ private:
   constexpr void adjust_cursor_row(RowOffset amount)
   {
 
-    if (view.empty()) {
+    if (m_view->empty()) {
       m_cursor_row = 0;
       return;
     }
 
-    m_cursor_row = std::clamp(amount + m_cursor_row, Row{ 0 }, Row{ static_cast<Row::underlying_t>(view.size()) - 1 });
+    m_cursor_row =
+      std::clamp(amount + m_cursor_row, Row{ 0 }, Row{ static_cast<Row::underlying_t>(m_view->size()) - 1 });
   }
   constexpr void do_scroll()
   {
@@ -201,7 +207,7 @@ private:
   constexpr void validate_cursor_position()
   {
     m_cursor_col =
-      std::clamp(m_cursor_col, Col{ 0 }, Col{ static_cast<Col::underlying_t>(view.line_length(m_cursor_row)) });
+      std::clamp(m_cursor_col, Col{ 0 }, Col{ static_cast<Col::underlying_t>(m_view->line_length(m_cursor_row)) });
     do_scroll();
   }
 };

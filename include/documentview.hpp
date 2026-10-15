@@ -3,9 +3,13 @@
 #include "document.hpp"
 #include "editortypes.hpp"
 #include "rect.hpp"
+#include "soa.hpp"
+#include "soamemorylayout.hpp"
 #include "textbufferview.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <ranges>
+
 
 struct RightGutter
 {
@@ -134,7 +138,13 @@ struct DocumentView
   // Non owning pointer
   Document *document;
 
-  explicit DocumentView(Document *doc) : document(doc), m_view(doc->m_buffer) {}
+  constexpr DocumentView(DocumentView &&) = default;
+
+  constexpr DocumentView(const DocumentView &) = delete;
+  constexpr DocumentView &operator=(const DocumentView &) = delete;
+  constexpr DocumentView &operator=(DocumentView &&) = default;
+
+  explicit DocumentView(Document *doc) : document(doc), m_view(&doc->m_buffer) {}
 
   [[nodiscard]] constexpr Col get_buffer_col() const noexcept { return origin(m_left_gutter_border + m_left.width()); };
 
@@ -168,23 +178,30 @@ struct DocumentView
 
 struct DocumentViewManager
 {
-  std::vector<DocumentView> views;
-  std::size_t active_view_index{ 0 };
+  enum class KeyMapIndex : unsigned { def = 0 };
+  enum class Visible : uint8_t { visible = 1, hidden = 2 };
 
-  void set_active_view(std::size_t index)
+  using SOAData_T = util::soa::SOA<util::soa::memory_layout::DynamicArray, DocumentView, KeyMapIndex, Visible>;
+  using Iterator = typename SOAData_T::Iterator;
+
+  SOAData_T m_views;
+
+  // std::vector<DocumentView> views;
+  Iterator active_view_index;
+
+  void set_active_view(Iterator index)
   {
-    if (index < views.size()) active_view_index = index;
+    if (index.index() < m_views.size()) { active_view_index = index; }
   }
 
   void create_view(Document *doc, Height row_height, Width col_width)
   {
-    views.emplace_back(doc);
-    auto &d = views.back();
+    m_views.push_back(DocumentView{ doc }, KeyMapIndex::def, Visible::visible);
+    auto &d = m_views.back<DocumentView>();
     d.set_position(0, 0, col_width, row_height);
-    active_view_index = std::distance(views.begin(), views.end() - 1);
+    active_view_index = m_views.end() - 1;
   }
 
-  constexpr TextBufferView &current_view() { return views[active_view_index].m_view; }
-
-  constexpr DocumentView &current_document() { return views[active_view_index]; }
+  constexpr DocumentView &current_document() { return active_view_index.get<DocumentView>(); }
+  constexpr TextBufferView &current_view() { return current_document().m_view; }
 };
