@@ -14,6 +14,7 @@
 #include "types.hpp"
 #include <iterator>
 #include <string_view>
+#include <utility>
 
 
 struct EditorGlobals
@@ -21,13 +22,13 @@ struct EditorGlobals
   term::Row rows{ 1 };
   term::Col cols{ 1 };
   bool quit_now{ false };
+  bool user_save_as_mode{ false };
 };
 
 DocumentManager g_DocManager;
 DocumentViews g_DocViews;
 
 EditorGlobals editor_globals;
-KeyMap key_map;
 
 
 void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
@@ -76,20 +77,11 @@ void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
   render_view(cmd, view.m_view, view.m_y, view.get_buffer_col());
 }
 
-void refresh_screen()
+void render_status_line(term::CommandBuffer &buff)
 {
 
-  term::DynamicCommandBuffer buff;
-  term::cursor::off(buff);
-  term::cursor::reset_position(buff);
-  term::clear_screen(buff);
-
   auto &doc = g_DocViews.current_document();
-
-  render_document_view(buff, doc);
-
   auto cur_pos = doc.cursor_position();
-
   term::cursor::position(buff, origin(origin(editor_globals.rows)), Col{ 0 });
 
   buff.add("Cursor  R:");
@@ -102,11 +94,23 @@ void refresh_screen()
   buff.add((unsigned int)doc.m_view.cursor_col_file().underlying());
   buff.add(" RowScroll: ");
   buff.add((unsigned int)doc.m_view.row_scroll().underlying());
-  // buff.add(" T:");
-  // buff.add((unsigned int)view.buffer().last_index());
-  // buff.add(" L:");
-  // buff.add((unsigned int)view.buffer().line_length(view.cursor_row_file()));
-  //
+}
+
+void refresh_screen()
+{
+
+  term::DynamicCommandBuffer buff;
+  term::cursor::off(buff);
+  term::cursor::reset_position(buff);
+  term::clear_screen(buff);
+
+  auto &doc = g_DocViews.current_document();
+
+  render_document_view(buff, doc);
+  render_status_line(buff);
+
+  auto cur_pos = doc.cursor_position();
+
   term::cursor::position(buff, cur_pos.first, cur_pos.second);
   term::cursor::on(buff);
   buff.submit();
@@ -127,15 +131,32 @@ bool process_key_presses(const term::KeyStatus &key)
   auto &ckeymap = g_DocViews.current_keymap();
   return ckeymap.key_event(key, g_DocViews.current_view());
 }
+void save_as_query(DocumentView &document) {}
+void save_as_query_current_view()
+{
+  save_as_query(g_DocViews.current_document());
+  editor_globals.user_save_as_mode = true;
+};
 
+void close_system_input_buffer(bool user_agreed)
+{
+  editor_globals.user_save_as_mode = false;
+  if (user_agreed) {
+    // Then save the file ...
+    return;
+  }
+}
 
-void close_system_input_buffer(bool user_agreed) {}
+enum class SystemDocuments : uint8_t { user_input, scratch_pad };
 
 int main(int argv, char *argc[])
 {
 
   term::TermControl tc{};
 
+  KeyMap key_map;
+
+  g_DocManager.create_system_document(std::to_underlying(SystemDocuments::user_input));
 
   if (argv >= 2)
     g_DocManager.load(argc[1]);
@@ -174,6 +195,7 @@ int main(int argv, char *argc[])
     SpecialKeys{ 0 },
     KeyMap::Repeatability::single);
 
+  key_once(key_map, 's', save_as_query_current_view(), SpecialKeys::alt);
   key_once(key_map, term::KeyCodes::END, view.line_end(), SpecialKeys{ 0 });
   key_once(key_map, 'c', refresh_screen(), SpecialKeys::alt);
   key_once(key_map, 'q', close_app(RequestReason::User), SpecialKeys::alt);
