@@ -107,7 +107,12 @@ void refresh_screen()
   auto &doc = g_DocViews.current_document();
 
   render_document_view(buff, doc);
-  render_status_line(buff);
+
+  if (editor_globals.user_save_as_mode) {
+
+  } else {
+    render_status_line(buff);
+  }
 
   auto cur_pos = doc.cursor_position();
 

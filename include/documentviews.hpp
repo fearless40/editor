@@ -16,9 +16,16 @@ public:
   using Iterator = typename soadata_t::Iterator;
 
 private:
+  struct NameToView
+  {
+    std::string name;
+    Iterator view;
+  };
+
   soadata_t m_views;
   std::vector<KeyMap> m_keymaps;
 
+  std::vector<NameToView> m_view_names;
   // std::vector<DocumentView> views;
   Iterator m_active_view;
 
@@ -49,6 +56,22 @@ public:
     return m_active_view;
   }
 
+  void view_name_set(Iterator view, const std::string &name)
+  {
+    auto found = std::ranges::find(m_view_names, name, &NameToView::name);
+    if (found != m_view_names.end()) { return; }
+
+    m_view_names.push_back(NameToView{ .name = name, .view = view });
+  }
+
+  Iterator view_name_get(const std::string &name)
+  {
+    auto found = std::ranges::find(m_view_names, name, &NameToView::name);
+    if (found == m_view_names.end()) { m_views.end(); }
+    return found->view;
+  }
+
+
   constexpr void hide_view(Iterator view)
   {
     if (view != m_views.end()) view.get<Visible>() = Visible::hidden;
@@ -57,6 +80,11 @@ public:
   constexpr void show_view(Iterator view)
   {
     if (view != m_views.end()) view.get<Visible>() = Visible::visible;
+  }
+
+  constexpr auto get_visible_views()
+  {
+    return std::views::filter(m_views, [](auto tup) { return std::get<Visible &>(tup) == Visible::visible; });
   }
 
   constexpr DocumentView &current_document() { return m_active_view.get<DocumentView>(); }
