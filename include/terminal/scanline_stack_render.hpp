@@ -8,50 +8,51 @@
 #include <vector>
 namespace term::compositor::stack {
 
-class Render {
+class Render
+{
 
   geom::AABB<int, int> extents;
   RowStack cache_stack;
   VectorIT cache_row;
   term::compositor::SOA &compositor_data;
 
-  static constexpr VectorIT &get_surfaces_in_row(VectorIT &input, SOA &soa,
-                                                 int y) {
+  static constexpr VectorIT &get_surfaces_in_row(VectorIT &input, SOA &soa, int y)
+  {
     using namespace soa;
     input.clear();
     for (auto it = soa.begin(); it != soa.end(); ++it) {
-      if (gety(it).contains(y)) {
-        input.push_back(it);
-      };
+      if (gety(it).contains(y)) { input.push_back(it); };
     }
     return input;
   }
 
-  static constexpr void sort_surfaces(VectorIT &input) {
+  static constexpr void sort_surfaces(VectorIT &input)
+  {
     using namespace soa;
-    std::sort(input.begin(), input.end(), [](auto &l, auto &r) {
-      unsigned long l_sort =
-          ((x(l).underlying() & 0xFFFF) << 16) | (zorder(l) & 0xFFFF);
-      unsigned long r_sort =
-          ((x(r).underlying() & 0xFFFF) << 16) | (zorder(r) & 0xFFFF);
+    std::ranges::sort(input.begin(), input.end(), [](auto &l, auto &r) {
+      unsigned long l_sort = ((x(l) & 0xFFFF) << 16) | (zorder(l) & 0xFFFF);
+      unsigned long r_sort = ((x(r) & 0xFFFF) << 16) | (zorder(r) & 0xFFFF);
       return l_sort < r_sort;
     });
   }
 
 public:
   Render(term::compositor::SOA &soa_input, geom::AABB<int, int> &&extents_)
-      : compositor_data(soa_input), extents{extents_} {}
+    : compositor_data(soa_input), extents{ extents_ }
+  {}
 
-  constexpr auto get_extents() const noexcept { return extents; }
+  [[nodiscard]] constexpr auto get_extents() const noexcept { return extents; }
 
   struct Iterator;
   friend struct Iterator;
 
-  struct Sentinal {
+  struct Sentinal
+  {
     int y_max;
   };
 
-  struct Iterator {
+  struct Iterator
+  {
     term::compositor::SOA &soa;
     RowCache cache;
     int x_max_;
@@ -61,13 +62,13 @@ public:
     Iterator(Iterator &) = delete;
     Iterator(Iterator &&) = default;
 
-    constexpr Iterator(term::compositor::SOA &soa_input, RowCache &&cache_input,
-                       geom::AABB<int, int> extents_)
-        : soa(soa_input), cache(cache_input), y_(extents_.y),
-          x_max_(extents_.x2) {}
+    constexpr Iterator(term::compositor::SOA &soa_input, RowCache &&cache_input, geom::AABB<int, int> extents_)
+      : soa(soa_input), cache(cache_input), y_(extents_.y), x_max_(extents_.x2)
+    {}
 
     bool operator!=(const Sentinal &sentinal) { return y_ < sentinal.y_max; }
-    Row operator*() {
+    Row operator*()
+    {
 
       using namespace soa;
       Render::get_surfaces_in_row(cache.sorted_line, soa, y_);
@@ -76,16 +77,15 @@ public:
       return Row(cache, x_max_ + 1);
     }
 
-    Iterator &operator++() {
+    Iterator &operator++()
+    {
       ++y_;
       return *this;
     };
   };
 
-  constexpr auto begin() {
-    return Iterator{compositor_data, RowCache{cache_row, cache_stack}, extents};
-  }
-  constexpr auto end() { return Sentinal{extents.y2}; }
+  constexpr auto begin() { return Iterator{ compositor_data, RowCache{ cache_row, cache_stack }, extents }; }
+  constexpr auto end() { return Sentinal{ extents.y2 }; }
 };
 
 // class StackRender {
@@ -187,4 +187,4 @@ public:
 //     stack.push(*sorted_line.begin());
 //   }
 // };
-} // namespace term::compositor::stack
+}// namespace term::compositor::stack

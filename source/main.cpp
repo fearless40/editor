@@ -72,8 +72,7 @@ void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
   // Ignore Header, Footer, RightGutter for now
   //
   //
-  render_fixedbufferview(cmd, view.left_gutter());
-  term::cursor::reset_position(cmd);
+  if (view.m_left_gutter_visible) { render_fixedbufferview(cmd, view.left_gutter()); };
   render_view(cmd, view.m_view, view.m_y, view.get_buffer_col());
 }
 

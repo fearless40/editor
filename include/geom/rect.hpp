@@ -29,8 +29,8 @@ template<typename XDimension, typename YDimension> struct TypedRect
 
   constexpr TypedRect(X_t x1_, X_t x2_, Y_t y1_, Y_t y2_) : x{ x1_ }, y{ y1_ }, w{ x1_, x2_ }, h{ y1_, y2_ } {}
 
-  constexpr Range1D<Width_t> xRange() const noexcept { return Range1D{ x, w }; }
-  constexpr Range1D<Height_t> yRange() const noexcept { return Range1D{ y, h }; }
+  constexpr Range1D<Width_t> xRange() const noexcept { return Range1D{ x.underlying(), w.underlying() }; }
+  constexpr Range1D<Height_t> yRange() const noexcept { return Range1D{ y.underlying(), h.underlying() }; }
 };
 
 using IntRect = RectSafe<int, int, int, int>;

@@ -4,6 +4,7 @@
 #include "soa.hpp"
 #include "soamemorylayout.hpp"
 #include <cstddef>
+#include <ranges>
 #include <utility>
 
 class DocumentViews
@@ -84,7 +85,8 @@ public:
 
   constexpr auto get_visible_views()
   {
-    return std::views::filter(m_views, [](auto tup) { return std::get<Visible &>(tup) == Visible::visible; });
+    return std::views::filter(m_views, [](auto tup) { return std::get<Visible &>(tup) == Visible::visible; })
+           | std::views::transform([](auto tup) -> DocumentView & { return std::get<DocumentView &>(tup); });
   }
 
   constexpr DocumentView &current_document() { return m_active_view.get<DocumentView>(); }

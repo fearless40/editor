@@ -8,10 +8,11 @@
 
 namespace term {
 
-class Compositor {
-public: // Types
+class Compositor
+{
+public:// Types
 private:
-  bool composition_dirty_{false};
+  bool composition_dirty_{ false };
 
   // These vectors are packed (no holes)
   std::vector<compositor::Handle> dirty_layers_;
@@ -20,41 +21,36 @@ private:
   compositor::SOA soa;
 
 private:
-  compositor::Width max_x_{80};
-  compositor::Height max_y_{80};
+  compositor::Width max_x_{ 80 };
+  compositor::Height max_y_{ 80 };
   compositor::Handle next_handle_{};
 
-  compositor::Handle next_handle() {
+  compositor::Handle next_handle()
+  {
     next_handle_.external_value += 1;
     next_handle_.map_index += 1;
     return next_handle_;
   }
 
-  void new_layer_with_handle(compositor::Rect &&pos, int zOrder,
-                             compositor::Handle handle) {
-    soa.push_back(pos.xRange(), pos.yRange(), zOrder, handle);
-  }
+  void new_layer_with_handle(compositor::Rect &&pos, int zOrder, compositor::Handle handle)
+  { soa.push_back(pos.xRange(), pos.yRange(), zOrder, handle); }
 
 public:
-  Compositor() {
-    new_layer_with_handle(compositor::Rect{max_x_, max_y_}, 0,
-                          compositor::Handle{});
-  }
-  Compositor(compositor::Width width, compositor::Height height)
-      : max_x_(width), max_y_(height) {
-    new_layer_with_handle(compositor::Rect{max_x_, max_y_}, 0,
-                          compositor::Handle{});
-  }
+  Compositor() { new_layer_with_handle(compositor::Rect{ max_x_, max_y_ }, 0, compositor::Handle{}); }
+  Compositor(compositor::Width width, compositor::Height height) : max_x_(width), max_y_(height)
+  { new_layer_with_handle(compositor::Rect{ max_x_, max_y_ }, 0, compositor::Handle{}); }
 
-  compositor::Handle get_base_layer() const { return {}; };
-  compositor::Handle new_layer(compositor::Rect &&position, int zOrder) {
+  [[nodiscard]] compositor::Handle get_base_layer() const { return {}; };
+  compositor::Handle new_layer(compositor::Rect &position, int zOrder)
+  {
     new_layer_with_handle(std::move(position), zOrder, next_handle());
     return next_handle_;
   };
 
-  compositor::stack::Render get_stack_render() {
+  compositor::stack::Render get_stack_render()
+  {
     return compositor::stack::Render(
-        soa, geom::AABB{0, max_x_.underlying(), 0, max_y_.underlying()});
+      soa, geom::AABB{ .x = 0, .x2 = max_x_.underlying(), .y = 0, .y2 = max_y_.underlying() });
   }
 
   // compositor::stack::StackRender get_stack_render_old() {
@@ -77,4 +73,4 @@ public:
   // void flatten_as_scanlines();
   // void flatten_as_rects();
 };
-}; // namespace term
+};// namespace term

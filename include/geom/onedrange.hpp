@@ -10,7 +10,7 @@ namespace geom {
 template<typename DimensonT> struct Range1D
 {
   using dimension_t = DimensonT;
-  using value_t = typename DimensonT::position_t;
+  using value_t = typename DimensonT::underlying_t;
 
   constexpr Range1D() : p(0), p2(0) {}
 

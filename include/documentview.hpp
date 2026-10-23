@@ -1,10 +1,13 @@
 #pragma once
+#include "digitcount.hpp"
 #include "dimensions.hpp"
 #include "document.hpp"
 #include "editortypes.hpp"
 #include "rect.hpp"
 #include "textbufferview.hpp"
+#include "xy.hpp"
 #include <cstddef>
+#include <memory>
 #include <ranges>
 
 
@@ -50,14 +53,23 @@ struct FixedWidthTextBuffer
   // }
 };
 
-struct LeftGutter
+class ViewBorderRender
+{
+public:
+  virtual ~ViewBorderRender() = default;
+  [[nodiscard]] virtual FixedWidthTextBuffer &render_view(const TextBufferView &view) = 0;
+  [[nodiscard]] virtual geom::Width width() const { return { 0 }; }
+  [[nodiscard]] virtual geom::Height height() const { return { 0 }; }
+};
+
+
+class LeftGutter : public ViewBorderRender
 {
   geom::Width request_width{ 4 };
   geom::Width min_width{ 4 };
   geom::Width max_width{ 5 };
   FixedWidthTextBuffer buff;
 
-  [[nodiscard]] constexpr geom::Width width() const { return request_width; }
 
   constexpr geom::Width update_width(const TextBufferView &view)
   {
@@ -73,10 +85,15 @@ struct LeftGutter
     return request_width;
   };
 
+public:
+  [[nodiscard]] constexpr geom::Width width() const override { return request_width; }
   // Code to show a raw view
-  FixedWidthTextBuffer &raw_view(const TextBufferView &view)
+  FixedWidthTextBuffer &render_view(const TextBufferView &view) override
   {
     char temp[12];
+
+    update_width(view);
+
     auto start_line_nbr = view.row_scroll();
     auto end_line_nbr = view.window_rows() + start_line_nbr;
     std::size_t last_char_size = 0;
@@ -128,12 +145,10 @@ struct DocumentView
   bool m_footer_visible{ false };
 
 
-  // Ows the view but views are moveable and can be allocated within the
-  // vector
   TextBufferView m_view;
 
   // Non owning pointer
-  Document *document;
+  Document *m_document;
 
   constexpr DocumentView(DocumentView &&) = default;
 
@@ -141,11 +156,30 @@ struct DocumentView
   constexpr DocumentView &operator=(const DocumentView &) = delete;
   constexpr DocumentView &operator=(DocumentView &&) = default;
 
-  explicit DocumentView(Document *doc) : document(doc), m_view(&doc->m_buffer) {}
+  explicit DocumentView(Document *doc) : m_document(doc), m_view(&doc->m_buffer) {}
 
   [[nodiscard]] constexpr Col get_buffer_col() const noexcept { return origin(m_left_gutter_border + m_left.width()); };
 
-  // [[nodiscard]] constexpr Col get_buffer_row() const noexcept { return origin(m_left_gutter_border + m_left.width());
+  std::string &get_row(Row row, std::string &buffer)
+  {
+
+
+    const auto col_size = m_view.window_cols();
+    const auto row_size = m_view.window_rows();
+    const auto row_data = m_view.buffer.get_row(row);
+
+    const auto col_scroll = view.col_scroll().underlying();
+    const auto len = std::clamp((int)std::ssize(row) - col_scroll, 0, view.window_cols().underlying());
+
+
+    auto const set_row_pos = row_offset.value + index;
+
+    term::cursor::position(buff, term::Row{ (int)set_row_pos }, col_offset);
+    if (std::ssize(row) > col_scroll) { buff.add(row.subview(col_scroll, len)); }
+  }
+
+  // [[nodiscard]] constexpr Col get_buffer_row() const noexcept { return origin(m_left_gutter_border +
+  // m_left.width());
   // };
 
   void set_position(X x, Y y, Width w, Height h)

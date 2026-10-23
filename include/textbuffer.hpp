@@ -9,22 +9,22 @@
 #include <vector>
 
 
-struct TextBuffer
+class TextBuffer
 {
   using Row = geom::Row;
   using Col = geom::Col;
   std::vector<std::string> rows;
   bool m_dirty{ false };
-  [[nodiscard]] std::size_t last_index() const { return empty() ? 0 : rows.size() - 1; }
-  [[nodiscard]] constexpr bool empty() const { return rows.empty(); }
-  [[nodiscard]] constexpr auto size() const { return std::ssize(rows); }
-  [[nodiscard]] constexpr bool dirty() const { return m_dirty; }
-
   constexpr void update_dirty() { m_dirty = true; }
   constexpr void clear_dirty() { m_dirty = false; }
 
   [[nodiscard]] constexpr bool is_valid_row(Row row) const { return row.underlying() < size(); }
 
+public:
+  [[nodiscard]] constexpr std::size_t last_index() const { return empty() ? 0 : rows.size() - 1; }
+  [[nodiscard]] constexpr bool empty() const { return rows.empty(); }
+  [[nodiscard]] constexpr auto size() const { return std::ssize(rows); }
+  [[nodiscard]] constexpr bool dirty() const { return m_dirty; }
   [[nodiscard]] constexpr auto line_length(Row row) const
   {
     if (is_valid_row(row)) { return std::ssize(rows[row.underlying()]); }
