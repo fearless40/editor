@@ -1,5 +1,3 @@
-// #include "version.hpp"
-#include "commandbuffer.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
 #include "documentview.hpp"
@@ -31,50 +29,50 @@ DocumentViews g_DocViews;
 EditorGlobals editor_globals;
 
 
-void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
-{
-  term::cursor::reset_position(buff);
-  for (auto [index, sv] : fbuf.line_view_index()) {
-    buff.add(sv);
-    // buff.add('\n');
-
-    term::cursor::position(buff, Row{ static_cast<RowOffset::underlying_t>(index) }, Col{ 0 });
-  }
-}
-
+// void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
+// {
+//   term::cursor::reset_position(buff);
+//   for (auto [index, sv] : fbuf.line_view_index()) {
+//     buff.add(sv);
+//     // buff.add('\n');
+//
+//     term::cursor::position(buff, Row{ static_cast<RowOffset::underlying_t>(index) }, Col{ 0 });
+//   }
+// }
+//
 void render_view(term::CommandBuffer &buff,
-  const TextBufferView &view,
+  const DocumentView &view,
   term::Row row_offset = term::Row{ 1 },
   term::Col col_offset = term::Col{ 1 })
 {
-
-  if (view.buffer()->empty()) return;
-
-
-  const auto col_size = view.window_cols();
-  const auto row_size = view.window_rows();
-  for (const auto &[index, row] : view.buffer()->rows | std::views::drop(view.row_scroll().underlying())
-                                    | std::views::take(row_size.underlying()) | std::views::enumerate) {
-
-    const auto col_scroll = view.col_scroll().underlying();
-    const auto len = std::clamp((int)std::ssize(row) - col_scroll, 0, view.window_cols().underlying());
+  FixedWidthTextBuffer renderTo;
+  renderTo.ensure_size(view.width(), 1);
 
 
-    auto const set_row_pos = row_offset.value + index;
-
-    term::cursor::position(buff, term::Row{ (int)set_row_pos }, col_offset);
-    if (std::ssize(row) > col_scroll) { buff.add(row.subview(col_scroll, len)); }
+  // const auto col_size = view.window_cols();
+  // const auto row_size = view.window_rows();
+  for (RowOffset row = view.get_first_visible_row(); row < view.get_last_visible_row(); ++row) {
+    term::cursor::position(buff, row + row_offset, col_offset);
+    auto sp = renderTo.span_at(0);
+    view.render_row_absolute(origin(row), sp);
+    buff.add(std::string_view((char *)&*sp.begin(), (char *)&*sp.end()));
   }
+  // for (const auto &[index, row] : view.buffer()->rows | std::views::drop(view.row_scroll().underlying())
+  //                                   | std::views::take(row_size.underlying()) | std::views::enumerate) {
+  //
+  //   const auto col_scroll = view.col_scroll().underlying();
+  //   const auto len = std::clamp((int)std::ssize(row) - col_scroll, 0, view.window_cols().underlying());
+  //
+  //
+  //   auto const set_row_pos = row_offset.value + index;
+  //
+  //   term::cursor::position(buff, term::Row{ (int)set_row_pos }, col_offset);
+  // if (std::ssize(row) > col_scroll) { buff.add(row.subview(col_scroll, len)); }
 }
+
 
 void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
-{
-  // Ignore Header, Footer, RightGutter for now
-  //
-  //
-  if (view.m_left_gutter_visible) { render_fixedbufferview(cmd, view.left_gutter()); };
-  render_view(cmd, view.m_view, view.m_y, view.get_buffer_col());
-}
+{ render_view(cmd, view, 0, view.get_buffer_col()); }
 
 void render_status_line(term::CommandBuffer &buff)
 {
@@ -86,13 +84,13 @@ void render_status_line(term::CommandBuffer &buff)
   buff.add("Cursor  R:");
   buff.add((unsigned int)cur_pos.first.underlying());
   buff.add(" ViewR: ");
-  buff.add((unsigned int)doc.m_view.cursor_row_file().underlying());
+  // buff.add((unsigned int)doc.m_view.cursor_row_file().underlying());
   buff.add(" C:");
   buff.add((unsigned int)cur_pos.second.underlying());
   buff.add(" ViewC: ");
-  buff.add((unsigned int)doc.m_view.cursor_col_file().underlying());
+  // buff.add((unsigned int)doc.m_view.cursor_col_file().underlying());
   buff.add(" RowScroll: ");
-  buff.add((unsigned int)doc.m_view.row_scroll().underlying());
+  // buff.add((unsigned int)doc.m_view.row_scroll().underlying());
 }
 
 void refresh_screen()

@@ -90,6 +90,6 @@ public:
   }
 
   constexpr DocumentView &current_document() { return m_active_view.get<DocumentView>(); }
-  constexpr TextBufferView &current_view() { return current_document().m_view; }
+  constexpr TextBufferView &current_view() { current_document().view(); }
   constexpr KeyMap &current_keymap() { return m_keymaps[std::to_underlying(m_active_view.get<KeymapIndex>())]; }
 };

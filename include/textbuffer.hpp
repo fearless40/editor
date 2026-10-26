@@ -18,7 +18,7 @@ class TextBuffer
   constexpr void update_dirty() { m_dirty = true; }
   constexpr void clear_dirty() { m_dirty = false; }
 
-  [[nodiscard]] constexpr bool is_valid_row(Row row) const { return row.underlying() < size(); }
+  [[nodiscard]] constexpr bool is_valid_row(Row row) const { return row.underlying() < std::ssize(rows); }
 
 public:
   [[nodiscard]] constexpr std::size_t last_index() const { return empty() ? 0 : rows.size() - 1; }
