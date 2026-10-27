@@ -3,14 +3,11 @@
 #include "dimensions.hpp"
 #include "document.hpp"
 #include "editortypes.hpp"
-#include "rect.hpp"
 #include "textbufferview.hpp"
 #include "xy.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <functional>
-#include <memory>
-#include <ranges>
 #include <string_view>
 
 
@@ -170,7 +167,7 @@ private:
   struct Gutters_Cache_Char
   {
     ColOffset left_gutter_size{ 0 };
-    size_t right_gutter_size{ 0 };
+    ColOffset right_gutter_size{ 0 };
   };
 
   mutable Gutters_Cache_Char m_gutter_cache;
@@ -190,6 +187,7 @@ public:
   { return m_view.row_scroll() + m_view.window_rows(); }
   [[nodiscard]] constexpr Width width() const noexcept { return m_w; }
   [[nodiscard]] constexpr Height height() const noexcept { return m_h; }
+  [[nodiscard]] constexpr auto view() noexcept { return m_view; }
 
 
   std::span<std::byte>
