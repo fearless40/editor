@@ -7,10 +7,8 @@
 #include "keymap.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
-#include "textbuffer.hpp"
 #include "textbufferview.hpp"
 #include "types.hpp"
-#include <iterator>
 #include <string_view>
 #include <utility>
 

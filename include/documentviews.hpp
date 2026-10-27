@@ -1,6 +1,7 @@
 #pragma once
 #include "documentview.hpp"
 #include "keymap.hpp"
+#include "linenumbers.hpp"
 #include "soa.hpp"
 #include "soamemorylayout.hpp"
 #include <cstddef>
@@ -53,7 +54,7 @@ public:
     m_views.push_back(DocumentView{ doc }, KeymapIndex::def, Visible::visible);
     auto &d = m_views.back<DocumentView>();
     d.set_position(0, 0, col_width, row_height);
-    d.add_left_gutter(LeftGutter2{});
+    d.add_left_gutter(LineNumbers{});
 
     m_active_view = m_views.end() - 1;
     return m_active_view;
