@@ -53,6 +53,8 @@ public:
     m_views.push_back(DocumentView{ doc }, KeymapIndex::def, Visible::visible);
     auto &d = m_views.back<DocumentView>();
     d.set_position(0, 0, col_width, row_height);
+    d.add_left_gutter(LeftGutter2{});
+
     m_active_view = m_views.end() - 1;
     return m_active_view;
   }
@@ -90,6 +92,6 @@ public:
   }
 
   constexpr DocumentView &current_document() { return m_active_view.get<DocumentView>(); }
-  constexpr TextBufferView &current_view() { current_document().view(); }
+  constexpr TextBufferView &current_view() { return current_document().view(); }
   constexpr KeyMap &current_keymap() { return m_keymaps[std::to_underlying(m_active_view.get<KeymapIndex>())]; }
 };

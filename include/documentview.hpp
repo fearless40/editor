@@ -85,7 +85,7 @@ struct LeftGutter2
 
 
   // Code to show a raw view
-  renderable_return operator()(renderable_input &input) const
+  renderable_return operator()(const renderable_input &input) const
   {
     static constexpr std::string_view empty{ "                       " };
     auto max_row = input.view.window_rows().underlying() + input.view.row_scroll().underlying();
@@ -129,9 +129,7 @@ struct LeftGutter2
 
 
 struct ThemeIndex
-{
-  unsigned int idx;
-};
+{ unsigned int idx; };
 
 struct ColorData
 {
@@ -149,7 +147,7 @@ public:
   using X = geom::X;
   using Y = geom::Y;
 
-  using render_able_gutter = std::copyable_function<renderable_return(renderable_input &input)>;
+  using render_able_gutter = std::copyable_function<renderable_return(const renderable_input &input) const>;
 
 private:
   X m_x{ 0 };
@@ -187,7 +185,10 @@ public:
   { return m_view.row_scroll() + m_view.window_rows(); }
   [[nodiscard]] constexpr Width width() const noexcept { return m_w; }
   [[nodiscard]] constexpr Height height() const noexcept { return m_h; }
-  [[nodiscard]] constexpr auto view() noexcept { return m_view; }
+  [[nodiscard]] constexpr auto &view() noexcept { return m_view; }
+
+  void constexpr add_left_gutter(render_able_gutter &&gutter)
+  { m_left_gutters.emplace_back(std::forward<render_able_gutter>(gutter)); }
 
 
   std::span<std::byte>
@@ -204,7 +205,7 @@ public:
 
     // leftgutters -> buffer -> rightgutters
     auto input = renderable_input{ .text_buffer = buffer, .color_buffer = {}, .view = m_view, .row = row, .fmt = fmt };
-    for (const auto &render : m_left_gutters) {
+    for (auto &render : m_left_gutters) {
       auto ret = render(input);
       input.text_buffer = ret.text_buffer;
       input.color_buffer = ret.color_buffer;
@@ -218,8 +219,8 @@ public:
 
     const auto row_string = m_view.get_row(row);
     const auto col_scroll = m_view.col_scroll();
-    const auto len =
-      std::clamp(ColOffset{ (int)std::ssize(row_string) } - col_scroll, ColOffset{ 0 }, m_view.window_cols());
+    const auto len = std::clamp(
+      ColOffset{ static_cast<int>(std::ssize(row_string)) } - col_scroll, ColOffset{ 0 }, m_view.window_cols());
     if (std::ssize(row_string) > col_scroll.underlying()) {
       // Write characters to the buffer
       if (fmt == OutputFormat::ASCII) {
@@ -228,9 +229,10 @@ public:
           len.underlying());
       };
     }
+    return { buffer.begin(), buffer.begin() + m_gutter_cache.left_gutter_size.underlying() + len.underlying() };
   }
 
-  FixedWidthTextBuffer &flatten(FixedWidthTextBuffer &buffer) {}
+  FixedWidthTextBuffer &flatten(FixedWidthTextBuffer &buffer) { return buffer; }
 
   // [[nodiscard]] constexpr Col get_buffer_row() const noexcept { return origin(m_left_gutter_border +
   // m_left.width());

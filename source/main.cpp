@@ -54,8 +54,10 @@ void render_view(term::CommandBuffer &buff,
   for (RowOffset row = view.get_first_visible_row(); row < view.get_last_visible_row(); ++row) {
     term::cursor::position(buff, row + row_offset, col_offset);
     auto sp = renderTo.span_at(0);
-    view.render_row_absolute(origin(row), sp);
-    buff.add(std::string_view((char *)&*sp.begin(), (char *)&*sp.end()));
+    auto ending_span = view.render_row_absolute(origin(row), sp);
+    buff.add(std::string_view((char *)&*sp.begin(), (char *)&*ending_span.end()));
+    // Add empty spaces
+    for (auto it = ending_span.end(); it < sp.end(); ++it) { buff.add(' '); }
   }
   // for (const auto &[index, row] : view.buffer()->rows | std::views::drop(view.row_scroll().underlying())
   //                                   | std::views::take(row_size.underlying()) | std::views::enumerate) {
@@ -165,7 +167,7 @@ int main(int argv, char *argc[])
   else
     g_DocManager.create_empty_document();
 
-  g_DocViews.create_view(g_DocManager.documents.back().get(), tc.height() - 1, tc.width());
+  g_DocViews.create_view(g_DocManager.back(), tc.height() - 1, tc.width());
 
   editor_globals.rows = term::Row{ tc.height() };
   editor_globals.cols = term::Col{ tc.width() };

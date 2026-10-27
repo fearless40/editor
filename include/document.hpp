@@ -32,7 +32,9 @@ struct DocumentManager
   using iterator = typename soa_t::Iterator;
   soa_t m_documents;
 
-  static constexpr bool system_documents(soa_t::reference_t tup) {}
+  static constexpr bool system_documents(soa_t::reference_t tup) { return false; }
+
+  [[nodiscard]] constexpr auto back() { return m_documents.back<document_t>().get(); }
 
   Document *create_empty_document()
   {
