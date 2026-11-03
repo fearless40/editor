@@ -1,9 +1,11 @@
 #include "cursor.hpp"
+#include "dimensions.hpp"
 #include "document.hpp"
 #include "documentview.hpp"
 #include "documentviews.hpp"
 #include "dynamiccommandbuffer.hpp"
 #include "editortypes.hpp"
+#include "fixedwidthtextbuffer.hpp"
 #include "keymap.hpp"
 #include "render.hpp"
 #include "term_control.hpp"
@@ -27,6 +29,39 @@ DocumentViews g_DocViews;
 EditorGlobals editor_globals;
 
 
+struct Window
+{
+  Row m_row;
+  Col m_col;
+  Width m_width;
+  Height m_height;
+};
+
+// struct FlexLayoutHorizontal
+// {
+//   std::vector<rendeerable_fn> items;
+//   std::vector<renderable_size> windows;
+// };
+//
+// struct FlexLayoutVertical
+// {
+//   // blah
+// };
+//
+// struct Rows
+// {
+// };
+//
+// struct Grid
+// {
+// };
+//
+//
+// struct AbsoultePosition
+// {
+// };
+//
+
 // void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
 // {
 //   term::cursor::reset_position(buff);
@@ -46,40 +81,32 @@ void render_view(term::CommandBuffer &buff,
   FixedWidthTextBuffer renderTo;
   renderTo.ensure_size(view.width(), 1);
 
-
   // const auto col_size = view.window_cols();
   // const auto row_size = view.window_rows();
   for (RowOffset row = view.get_first_visible_row(); row < view.get_last_visible_row(); ++row) {
     term::cursor::position(buff, row + row_offset, col_offset);
     auto sp = renderTo.span_at(0);
-    auto ending_span = view.render_row_absolute(origin(row), sp);
-    buff.add(std::string_view((char *)&*sp.begin(), (char *)&*ending_span.end()));
-    // Add empty spaces
-    for (auto it = ending_span.end(); it < sp.end(); ++it) { buff.add(' '); }
+    Renderable_Input input = {
+      .text_buffer = sp,
+      .color_buffer = {},
+      .view = view.view(),
+      .row = geom::to_position(row),
+      .fmt = OutputFormat::ASCII,
+    };
+    auto output = view.render(input);
+    buff.add(std::string_view((char *)&*sp.begin(), (char *)&*output.text_buffer.end()));
   }
-  // for (const auto &[index, row] : view.buffer()->rows | std::views::drop(view.row_scroll().underlying())
-  //                                   | std::views::take(row_size.underlying()) | std::views::enumerate) {
-  //
-  //   const auto col_scroll = view.col_scroll().underlying();
-  //   const auto len = std::clamp((int)std::ssize(row) - col_scroll, 0, view.window_cols().underlying());
-  //
-  //
-  //   auto const set_row_pos = row_offset.value + index;
-  //
-  //   term::cursor::position(buff, term::Row{ (int)set_row_pos }, col_offset);
-  // if (std::ssize(row) > col_scroll) { buff.add(row.subview(col_scroll, len)); }
 }
 
 
-void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
-{ render_view(cmd, view, 0, view.get_buffer_col()); }
+void render_document_view(term::CommandBuffer &cmd, DocumentView &view) { render_view(cmd, view, 0, term::Row{ 1 }); }
 
 void render_status_line(term::CommandBuffer &buff)
 {
 
   auto &doc = g_DocViews.current_document();
   auto cur_pos = doc.cursor_position();
-  term::cursor::position(buff, origin(origin(editor_globals.rows)), Col{ 0 });
+  term::cursor::position(buff, geom::to_distance(editor_globals.rows), Col{ 0 });
 
   buff.add("Cursor  R:");
   buff.add((unsigned int)cur_pos.first.underlying());

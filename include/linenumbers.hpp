@@ -14,7 +14,7 @@ public:
   {
     auto max_row = input.view.window_rows().underlying() + input.view.row_scroll().underlying();
     auto digitCount = util::fast_digit_count(max_row);
-    if (input.fmt == OutputFormat::SizeOnly) { return { .written = ColOffset{ digitCount } + right_border }; }
+    if (input.fmt == OutputFormat::SizeOnly) { return { .char_written = ColOffset{ digitCount } + right_border }; }
 
     // This only ever outputs ASCII for now. Other formats pretty easy to add later
 
@@ -47,7 +47,7 @@ public:
       // clang-format off
       .text_buffer = { input.text_buffer.begin(), iterator},
       .color_buffer = input.color_buffer,
-      .written = ColOffset
+      .char_written = ColOffset
       { static_cast<ColOffset::underlying_t>(std::distance(input.text_buffer.begin(), iterator)) }
       // clang-format on
     };

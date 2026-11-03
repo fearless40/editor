@@ -44,6 +44,9 @@ public:
   {
     m_screen_rows = rows;
     m_screen_cols = cols;
+    validate_cursor_position();
+    adjust_cursor_row(0);
+    do_scroll();
   }
 
   [[nodiscard]] std::string_view get_row(Row row) const { return m_buffer->get_row(row).value_or(std::string_view{}); }
