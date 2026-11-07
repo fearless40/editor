@@ -8,6 +8,29 @@
 #include <ranges>
 #include <utility>
 
+
+struct SpacesInserter
+{
+  Width number_spaces;
+  constexpr Renderable_Return operator()(const Renderable_Input &input) const
+  {
+    if (input.fmt == OutputFormat::SizeOnly) {
+      return Renderable_Return{ .text_buffer = {}, .color_buffer = {}, .char_written = number_spaces };
+    }
+
+    // Offset by one as the end iterator should be 1 past the end
+    std::fill(
+      input.text_buffer.begin(), input.text_buffer.begin() + number_spaces.underlying(), static_cast<std::byte>(' '));
+
+    return {
+      .text_buffer = { input.text_buffer.begin() + number_spaces.underlying(), input.text_buffer.end() },
+      .color_buffer = input.color_buffer,
+      .char_written = number_spaces,
+    };
+  }
+};
+
+
 class DocumentViews
 {
 public:
@@ -54,8 +77,10 @@ public:
     m_views.push_back(DocumentView{ doc }, KeymapIndex::def, Visible::visible);
     auto &d = m_views.back<DocumentView>();
     d.set_position(0, 0, col_width, row_height);
+    // d.add_left_gutter(SpacesInserter{ Width{ 1 } });
     d.add_left_gutter(LineNumbers{});
-
+    d.add_left_gutter(SpacesInserter{ Width{ 1 } });
+    //
     m_active_view = m_views.end() - 1;
     return m_active_view;
   }

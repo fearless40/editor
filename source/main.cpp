@@ -74,17 +74,18 @@ struct Window
 // }
 //
 void render_view(term::CommandBuffer &buff,
-  const DocumentView &view,
+  DocumentView &view,
   term::Row row_offset = term::Row{ 1 },
   term::Col col_offset = term::Col{ 1 })
 {
   FixedWidthTextBuffer renderTo;
   renderTo.ensure_size(view.width(), 1);
 
+  view.calculate_widths(geom::to_position(view.get_first_visible_row()));
   // const auto col_size = view.window_cols();
   // const auto row_size = view.window_rows();
   for (RowOffset row = view.get_first_visible_row(); row < view.get_last_visible_row(); ++row) {
-    term::cursor::position(buff, row + row_offset, col_offset);
+    term::cursor::position(buff, row - view.get_first_visible_row() + row_offset, col_offset);
     auto sp = renderTo.span_at(0);
     Renderable_Input input = {
       .text_buffer = sp,
@@ -94,7 +95,10 @@ void render_view(term::CommandBuffer &buff,
       .fmt = OutputFormat::ASCII,
     };
     auto output = view.render(input);
-    buff.add(std::string_view((char *)&*sp.begin(), (char *)&*output.text_buffer.end()));
+    term::clear_current_line(buff);
+    if (output.char_written > 0) {
+      buff.add(std::string_view((char *)&*sp.begin(), (char *)&*output.text_buffer.begin()));
+    }
   }
 }
 

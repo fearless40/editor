@@ -6,7 +6,6 @@ class LineNumbers
 {
   Width min_width{ 3 };
   Width max_width{ 5 };
-  Width right_border{ 1 };
 
 public:
   // Code to show a raw view
@@ -14,7 +13,7 @@ public:
   {
     auto max_row = input.view.window_rows().underlying() + input.view.row_scroll().underlying();
     auto digitCount = util::fast_digit_count(max_row);
-    if (input.fmt == OutputFormat::SizeOnly) { return { .char_written = ColOffset{ digitCount } + right_border }; }
+    if (input.fmt == OutputFormat::SizeOnly) { return { .char_written = ColOffset{ digitCount } }; }
 
     // This only ever outputs ASCII for now. Other formats pretty easy to add later
 
@@ -23,32 +22,27 @@ public:
     auto request_width = std::clamp(digitCount, min_width.underlying(), max_width.underlying());
 
     auto iterator = input.text_buffer.begin();
-    std::size_t last_char_size = 0;
     // Generate space
     std::fill(&*iterator, &*(iterator + request_width - digitCount), static_cast<std::byte>(' '));
 
     // Move the iterator
     iterator += request_width - digitCount;
 
+    constexpr const auto BASE_10 = 10;
 
     // Do integer conversion in place
-    auto conres = std::to_chars(reinterpret_cast<char *>(&*(iterator)),
+    auto conres = std::to_chars(reinterpret_cast<char *>(&*iterator),
       reinterpret_cast<char *>(&*input.text_buffer.end()),
       input.row.underlying(),
-      10);
+      BASE_10);
 
-    if (conres) {
-      iterator += digitCount;
-      std::fill(&*iterator, &*(iterator + right_border.underlying()), static_cast<std::byte>(' '));
-      iterator += right_border.underlying();
-    }
+    if (conres) { iterator += digitCount; }
 
     return {
       // clang-format off
-      .text_buffer = { input.text_buffer.begin(), iterator},
+      .text_buffer = {iterator, input.text_buffer.end()},
       .color_buffer = input.color_buffer,
-      .char_written = ColOffset
-      { static_cast<ColOffset::underlying_t>(std::distance(input.text_buffer.begin(), iterator)) }
+      .char_written = request_width,
       // clang-format on
     };
   }

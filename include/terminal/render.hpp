@@ -139,6 +139,12 @@ inline void clear_screen(CommandBuffer &buffer)
   buffer.add("2J");
 }
 
+inline void clear_current_line(CommandBuffer &buffer)
+{
+  buffer.CSI();
+  buffer.add("2K");
+}
+
 inline void clear_screen() { CommandBuffer::write("\e[2J"sv); }
 
 }// namespace term

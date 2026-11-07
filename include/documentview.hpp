@@ -48,6 +48,8 @@ public:
   [[nodiscard]] constexpr auto &view() noexcept { return m_view; }
 
   [[nodiscard]] constexpr const auto &view() const noexcept { return m_view; }
+  [[nodiscard]] constexpr const ColOffset cursor_col() const
+  { return geom::to_distance(m_view.cursor_col_screen()) + m_gutter_cache.left_gutter_size; }
 
 
   void constexpr add_left_gutter(render_able_gutter &&gutter)
@@ -56,7 +58,7 @@ public:
 
   void constexpr calculate_widths(Row row)
   {
-    Renderable_Input input = { .fmt = OutputFormat::SizeOnly, .row = row, .view = view() };
+    Renderable_Input input = { .view = view(), .row = row, .fmt = OutputFormat::SizeOnly };
     ColOffset left_width{ 0 };
     ColOffset right_width{ 0 };
     for (const auto &rend : m_left_gutter) {
@@ -91,6 +93,7 @@ public:
     {
       auto outpt = render_row_of_document(input);
       char_written += outpt.char_written;
+      input.update(outpt);
     }
 
 
@@ -123,10 +126,9 @@ public:
 
   {
     using geom::to_distance, geom::to_distance;
-    auto cx =
-      geom::to_distance(m_view.cursor_col_screen()) + geom::to_distance(m_col) + m_gutter_cache.left_gutter_size;
-    auto cy = to_distance(m_row) + geom::to_distance(m_view.cursor_row_screen());
-    return { to_position(cy), to_position(cx) };
+    auto col = to_distance(m_view.cursor_col_screen()) + to_distance(m_col) + m_gutter_cache.left_gutter_size;
+    auto row = to_distance(m_row) + to_distance(m_view.cursor_row_screen());
+    return { to_position(row), to_position(col) };
   }
 
   static Renderable_Return render_row_of_document(Renderable_Input &input)
@@ -148,7 +150,7 @@ public:
           row_string.subview(col_scroll.underlying(), len.underlying()).data(),
           len.underlying());
         return {
-          .text_buffer = { input.text_buffer.begin(), input.text_buffer.begin() + len.underlying() },
+          .text_buffer = { input.text_buffer.begin() + len.underlying(), input.text_buffer.end() },
           .color_buffer = input.color_buffer,
           .char_written = len,
         };
