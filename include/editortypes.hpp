@@ -24,6 +24,8 @@ struct ByteColorData
 
 
 enum class OutputFormat : std::uint8_t { SizeOnly, ASCII, UTF8, UTF16, UTF32 };
+
+
 struct Renderable_Return
 {
   // New span points at what was written.

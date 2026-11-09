@@ -80,7 +80,7 @@ public:
     // d.add_left_gutter(SpacesInserter{ Width{ 1 } });
     d.add_left_gutter(LineNumbers{});
     d.add_left_gutter(SpacesInserter{ Width{ 1 } });
-    //
+
     m_active_view = m_views.end() - 1;
     return m_active_view;
   }
