@@ -74,11 +74,15 @@ struct DynamicArray
   static constexpr void set(reference_t<data_t> array, index_t index, const data_t &item_value)
   { array[index] = item_value; }
 
+  // template<typename data_t>
+  //   requires std::is_move_assignable_v<data_t>
+  // static constexpr void set(reference_t<data_t> array, index_t index, data_t &&item_value)
+  // { array[index] = std::forward<data_t>(item_value); }
+  //
   template<typename data_t>
-    requires std::is_move_assignable_v<data_t>
+    requires std::is_move_constructible_v<data_t>// Use constructible instead of assignable
   static constexpr void set(reference_t<data_t> array, index_t index, data_t &&item_value)
-  { array[index] = std::forward<data_t>(item_value); }
-
+  { std::construct_at(std::addressof(array[index]), std::forward<data_t>(item_value)); }
 
   template<typename data_t> static constexpr pointer_t<data_t> get_pointer(data_t *value) { return value; }
 };
@@ -110,34 +114,22 @@ template<unsigned int MAX_CAPACITY> struct FixedArray
   template<typename data_t> static value_t<data_t> allocate(value_t<data_t>, std::size_t oldsz, std::size_t newsz)
   { return {}; }
 
-  template<typename data_t>
-  // requires (data_t) { data_t.end() }
-  static constexpr auto end(const data_t &value, std::size_t endIndex)
+  template<typename data_t> static constexpr auto end(const data_t &value, std::size_t endIndex)
   { return value.begin() + endIndex; }
 
-  template<typename data_t>
-  // requires ( data_t.begin() )
-  static constexpr auto begin(const data_t &value)
-  { return value.begin(); }
+  template<typename data_t> static constexpr auto begin(const data_t &value) { return value.begin(); }
 
-  template<typename data_t>
-  // requires ( data_t.operator [] )
-  static constexpr typename data_t::reference at(data_t &value, index_t index)
+  template<typename data_t> static constexpr typename data_t::reference at(data_t &value, index_t index)
   { return value[index]; }
 
-  template<typename data_t>
-  // requires ( data_t.operator [] )
-  static constexpr typename data_t::pointer pointer_at(data_t &value, index_t index)
+  template<typename data_t> static constexpr typename data_t::pointer pointer_at(data_t &value, index_t index)
   { return &value[index]; }
 
   template<typename data_t>
-  // requires ( data_t.operator [] )
   static constexpr void set(reference_t<data_t> array, index_t index, const data_t &item_value)
   { array[index] = item_value; }
 
-  template<typename data_t>
-  // requires (data_t.data() )
-  static constexpr typename data_t::pointer get_pointer(data_t &value)
+  template<typename data_t> static constexpr typename data_t::pointer get_pointer(data_t &value)
   { return value.data(); }
 };
 }// namespace util::soa::memory_layout

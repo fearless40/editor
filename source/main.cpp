@@ -23,6 +23,7 @@ struct EditorGlobals
   bool quit_now{ false };
   bool user_save_as_mode{ false };
 
+  DocumentViews::Iterator last_view;
   constexpr const static std::string_view text_input = "##system_input";
 };
 
@@ -31,55 +32,10 @@ DocumentViews g_DocViews;
 
 EditorGlobals editor_globals;
 
-
-struct Window
-{
-  Row m_row;
-  Col m_col;
-  Width m_width;
-  Height m_height;
-};
-
-// struct FlexLayoutHorizontal
-// {
-//   std::vector<rendeerable_fn> items;
-//   std::vector<renderable_size> windows;
-// };
-//
-// struct FlexLayoutVertical
-// {
-//   // blah
-// };
-//
-// struct Rows
-// {
-// };
-//
-// struct Grid
-// {
-// };
-//
-//
-// struct AbsoultePosition
-// {
-// };
-//
-
-// void render_fixedbufferview(term::CommandBuffer &buff, FixedWidthTextBuffer &fbuf)
-// {
-//   term::cursor::reset_position(buff);
-//   for (auto [index, sv] : fbuf.line_view_index()) {
-//     buff.add(sv);
-//     // buff.add('\n');
-//
-//     term::cursor::position(buff, Row{ static_cast<RowOffset::underlying_t>(index) }, Col{ 0 });
-//   }
-// }
-//
 void render_view(term::CommandBuffer &buff,
   DocumentView &view,
-  term::Row row_offset = term::Row{ 1 },
-  term::Col col_offset = term::Col{ 1 })
+  Row row_offset = term::Row{ 1 },
+  Col col_offset = term::Col{ 1 })
 {
   FixedWidthTextBuffer renderTo;
   renderTo.ensure_size(view.width(), 1);
@@ -88,6 +44,7 @@ void render_view(term::CommandBuffer &buff,
   // const auto col_size = view.window_cols();
   // const auto row_size = view.window_rows();
   for (RowOffset row = view.get_first_visible_row(); row < view.get_last_visible_row(); ++row) {
+
     term::cursor::position(buff, row - view.get_first_visible_row() + row_offset, col_offset);
     auto sp = renderTo.span_at(0);
     Renderable_Input input = {
@@ -106,14 +63,15 @@ void render_view(term::CommandBuffer &buff,
 }
 
 
-void render_document_view(term::CommandBuffer &cmd, DocumentView &view) { render_view(cmd, view, 0, term::Row{ 1 }); }
+void render_document_view(term::CommandBuffer &cmd, DocumentView &view)
+{ render_view(cmd, view, view.row(), view.col()); }
 
 void render_status_line(term::CommandBuffer &buff)
 {
 
   auto &doc = g_DocViews.current_document();
   auto cur_pos = doc.cursor_position();
-  term::cursor::position(buff, geom::to_distance(editor_globals.rows), Col{ 0 });
+  term::cursor::position(buff, geom::to_distance(editor_globals.rows) + term::Row{ 1 }, Col{ 0 });
 
   buff.add("Cursor  R:");
   buff.add((unsigned int)cur_pos.first.underlying());
@@ -170,6 +128,7 @@ bool process_key_presses(const term::KeyStatus &key)
 }
 void save_as_query(DocumentView &document)
 {
+  editor_globals.last_view = g_DocViews.current_document_iterator();
   auto *doc = g_DocManager.get_system_document(EditorGlobals::text_input);
   if (doc == nullptr) return;
   auto &buff = doc->m_buffer;
@@ -189,6 +148,10 @@ void save_as_query_current_view()
 void close_system_input_buffer(bool user_agreed)
 {
   editor_globals.user_save_as_mode = false;
+  auto system_input = g_DocViews.view_name_get(EditorGlobals::text_input);
+  g_DocViews.hide_view(system_input);
+  g_DocViews.set_active_view(editor_globals.last_view);
+
   if (user_agreed) {
     // Then save the file ...
     return;
@@ -214,6 +177,8 @@ int main(int argv, char *argc[])
   auto user_view = g_DocViews.create_view(g_DocManager.back(), tc.height() - 1, tc.width());
   auto *system_doc = g_DocManager.create_system_document(EditorGlobals::text_input);
   auto system_view = g_DocViews.create_view(system_doc, Height{ 1 }, tc.width());
+  system_view.get<DocumentView &>().set_position(Col{ 0 }, Row{ tc.height() }, tc.width(), Height{ 1 });
+  g_DocViews.view_name_set(system_view, EditorGlobals::text_input);
   g_DocViews.hide_view(system_view);
 
   g_DocViews.set_active_view(user_view);
@@ -269,7 +234,7 @@ int main(int argv, char *argc[])
     return KeyMap::EventContinue::resume;
   });
 
-  auto defKeyMap = g_DocViews.add_keymap(key_map);
+
   {
     auto kmSpecial{ key_map };
     key_once(kmSpecial, term::KeyCodes::ENTER, ::close_system_input_buffer(true), SpecialKeys{ 0 });
@@ -280,6 +245,7 @@ int main(int argv, char *argc[])
     g_DocViews.assign_keymap_id_to_document(system_view, specialmap);
   }
 
+  auto defKeyMap = g_DocViews.set_default_keymap(key_map);
 
 #undef key_once
 #undef key_many

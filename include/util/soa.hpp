@@ -170,7 +170,7 @@ public:
   }
 
   void push_back(structures_t &&...items)
-    requires(std::is_move_assignable_v<structures_t> && ...)
+    requires(std::is_move_constructible_v<structures_t> && ...)
   {
     if (capacity() < size() + 1) {
       // Then Allocate

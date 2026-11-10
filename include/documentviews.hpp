@@ -61,9 +61,24 @@ public:
     if (index.index() < m_views.size()) { m_active_view = index; }
   }
 
+  std::size_t set_default_keymap(KeyMap &keymap)
+  {
+    if (m_keymaps.empty()) {
+      m_keymaps.push_back(std::move(keymap));
+    } else {
+      m_keymaps[std::to_underlying(KeymapIndex::def)] = std::move(keymap);
+    }
+    return std::to_underlying(KeymapIndex::def);
+  }
+
   std::size_t add_keymap(KeyMap &keymap)
   {
-    m_keymaps.push_back(std::move(keymap));
+    if (m_keymaps.empty()) {
+      m_keymaps.emplace_back();
+      m_keymaps.push_back(std::move(keymap));
+    } else {
+      m_keymaps.push_back(std::move(keymap));
+    }
     return std::distance(m_keymaps.begin(), m_keymaps.end() - 1);
   }
 
@@ -85,18 +100,18 @@ public:
     return m_active_view;
   }
 
-  void view_name_set(Iterator view, const std::string &name)
+  void view_name_set(Iterator view, const std::string_view name)
   {
     auto found = std::ranges::find(m_view_names, name, &NameToView::name);
     if (found != m_view_names.end()) { return; }
 
-    m_view_names.push_back(NameToView{ .name = name, .view = view });
+    m_view_names.push_back(NameToView{ .name = std::string{ name }, .view = view });
   }
 
   Iterator view_name_get(const std::string_view name)
   {
     auto found = std::ranges::find(m_view_names, name, &NameToView::name);
-    if (found == m_view_names.end()) { m_views.end(); }
+    if (found == m_view_names.end()) { return m_views.end(); }
     return found->view;
   }
 
@@ -117,6 +132,7 @@ public:
            | std::views::transform([](auto tup) -> DocumentView & { return std::get<DocumentView &>(tup); });
   }
 
+  [[nodiscard]] constexpr Iterator current_document_iterator() const { return m_active_view; }
   constexpr DocumentView &current_document() { return m_active_view.get<DocumentView>(); }
   constexpr TextBufferView &current_view() { return current_document().view(); }
   constexpr KeyMap &current_keymap() { return m_keymaps[std::to_underlying(m_active_view.get<KeymapIndex>())]; }
