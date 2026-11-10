@@ -12,8 +12,6 @@ Document::Errors Document::read_file(std::filesystem::path file)
     std::getline(f, line);
     m_buffer.append_row(std::move(line));
   }
-  m_file = file;
-  m_is_file_empty = false;
 
   // m_buffer.clear_dirty();
   return Errors::no_error;

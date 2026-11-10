@@ -1,3 +1,4 @@
+#include "commandbuffer.hpp"
 #include "cursor.hpp"
 #include "dimensions.hpp"
 #include "document.hpp"
@@ -21,6 +22,8 @@ struct EditorGlobals
   term::Col cols{ 1 };
   bool quit_now{ false };
   bool user_save_as_mode{ false };
+
+  constexpr const static std::string_view text_input = "##system_input";
 };
 
 DocumentManager g_DocManager;
@@ -124,6 +127,8 @@ void render_status_line(term::CommandBuffer &buff)
   // buff.add((unsigned int)doc.m_view.row_scroll().underlying());
 }
 
+void render_save_as(term::CommandBuffer &buff) {}
+
 void refresh_screen()
 {
 
@@ -132,16 +137,15 @@ void refresh_screen()
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  auto &doc = g_DocViews.current_document();
-
-  render_document_view(buff, doc);
+  for (auto &view : g_DocViews.get_visible_views()) { render_document_view(buff, view); }
 
   if (editor_globals.user_save_as_mode) {
-
+    render_save_as(buff);
   } else {
     render_status_line(buff);
   }
 
+  auto &doc = g_DocViews.current_document();
   auto cur_pos = doc.cursor_position();
 
   term::cursor::position(buff, cur_pos.first, cur_pos.second);
@@ -164,7 +168,18 @@ bool process_key_presses(const term::KeyStatus &key)
   auto &ckeymap = g_DocViews.current_keymap();
   return ckeymap.key_event(key, g_DocViews.current_view());
 }
-void save_as_query(DocumentView &document) {}
+void save_as_query(DocumentView &document)
+{
+  auto *doc = g_DocManager.get_system_document(EditorGlobals::text_input);
+  if (doc == nullptr) return;
+  auto &buff = doc->m_buffer;
+  buff.clear();
+  auto name = g_DocManager.get_name(document.document());
+  buff.append_row(name);
+  auto system_input = g_DocViews.view_name_get(EditorGlobals::text_input);
+  g_DocViews.show_view(system_input);
+  g_DocViews.set_active_view(system_input);
+}
 void save_as_query_current_view()
 {
   save_as_query(g_DocViews.current_document());
@@ -189,14 +204,20 @@ int main(int argv, char *argc[])
 
   KeyMap key_map;
 
-  g_DocManager.create_system_document(std::to_underlying(SystemDocuments::user_input));
+  g_DocManager.create_system_document(EditorGlobals::text_input);
 
   if (argv >= 2)
     g_DocManager.load(argc[1]);
   else
     g_DocManager.create_empty_document();
 
-  g_DocViews.create_view(g_DocManager.back(), tc.height() - 1, tc.width());
+  auto user_view = g_DocViews.create_view(g_DocManager.back(), tc.height() - 1, tc.width());
+  auto *system_doc = g_DocManager.create_system_document(EditorGlobals::text_input);
+  auto system_view = g_DocViews.create_view(system_doc, Height{ 1 }, tc.width());
+  g_DocViews.hide_view(system_view);
+
+  g_DocViews.set_active_view(user_view);
+
 
   editor_globals.rows = term::Row{ tc.height() };
   editor_globals.cols = term::Col{ tc.width() };
@@ -255,6 +276,8 @@ int main(int argv, char *argc[])
 
     key_once(kmSpecial, term::KeyCodes::ESCAPE, ::close_system_input_buffer(false), SpecialKeys{ 0 });
     auto specialmap = g_DocViews.add_keymap(kmSpecial);
+
+    g_DocViews.assign_keymap_id_to_document(system_view, specialmap);
   }
 
 

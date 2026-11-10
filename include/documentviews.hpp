@@ -93,7 +93,7 @@ public:
     m_view_names.push_back(NameToView{ .name = name, .view = view });
   }
 
-  Iterator view_name_get(const std::string &name)
+  Iterator view_name_get(const std::string_view name)
   {
     auto found = std::ranges::find(m_view_names, name, &NameToView::name);
     if (found == m_view_names.end()) { m_views.end(); }

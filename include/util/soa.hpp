@@ -43,9 +43,9 @@ public:
   using reference_t = std::tuple<typename protocol_t::template item_reference_t<structures_t>...>;
   using pointer_t = std::tuple<typename protocol_t::template item_pointer_t<structures_t>...>;
 
-  template<typename T> using array_storage_t = typename protocol_t::template value_t<T>;
+  template<typename T> using array_storage_t = protocol_t::template value_t<T>;
 
-  template<typename T> using array_reference_t = typename protocol_t::template reference_t<T>;
+  template<typename T> using array_reference_t = protocol_t::template reference_t<T>;
 
   using index_t = std::size_t;
 

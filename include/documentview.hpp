@@ -39,7 +39,7 @@ public:
 
   explicit DocumentView(Document *doc) : m_document(doc), m_view(&doc->m_buffer) {}
 
-
+  [[nodiscard]] constexpr const Document *document() const noexcept { return m_document; }
   [[nodiscard]] constexpr RowOffset get_first_visible_row() const noexcept { return m_view.row_scroll(); }
   [[nodiscard]] constexpr RowOffset get_last_visible_row() const noexcept
   { return m_view.row_scroll() + m_view.window_rows(); }
