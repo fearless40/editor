@@ -41,8 +41,6 @@ void render_view(term::CommandBuffer &buff,
   renderTo.ensure_size(view.width(), 1);
 
   view.calculate_widths(geom::to_position(view.get_first_visible_row()));
-  // const auto col_size = view.window_cols();
-  // const auto row_size = view.window_rows();
   for (RowOffset row = view.get_first_visible_row(); row < view.get_last_visible_row(); ++row) {
 
     term::cursor::position(buff, row - view.get_first_visible_row() + row_offset, col_offset);
@@ -95,7 +93,7 @@ void refresh_screen()
   term::cursor::reset_position(buff);
   term::clear_screen(buff);
 
-  for (auto &view : g_DocViews.get_visible_views()) { render_document_view(buff, view); }
+  for (auto &view : g_DocViews.get_visible()) { render_document_view(buff, view); }
 
   if (editor_globals.user_save_as_mode) {
     render_save_as(buff);
@@ -113,12 +111,7 @@ void refresh_screen()
 
 enum class RequestReason : std::uint8_t { User, AppError, OSRequest };
 
-void close_app(RequestReason)
-{
-  editor_globals.quit_now = true;
-}
-
-;
+void close_app(RequestReason) { editor_globals.quit_now = true; }
 
 // Returns false to indicate quitting
 bool process_key_presses(const term::KeyStatus &key)
@@ -126,6 +119,7 @@ bool process_key_presses(const term::KeyStatus &key)
   auto &ckeymap = g_DocViews.current_keymap();
   return ckeymap.key_event(key, g_DocViews.current_view());
 }
+
 void save_as_query(DocumentView &document)
 {
   editor_globals.last_view = g_DocViews.current_document_iterator();
@@ -134,11 +128,12 @@ void save_as_query(DocumentView &document)
   auto &buff = doc->m_buffer;
   buff.clear();
   auto name = g_DocManager.get_name(document.document());
-  buff.append_row(name);
-  auto system_input = g_DocViews.view_name_get(EditorGlobals::text_input);
-  g_DocViews.show_view(system_input);
-  g_DocViews.set_active_view(system_input);
+  buff.insert_row(name, 0);
+  auto system_input = g_DocViews.get(EditorGlobals::text_input);
+  g_DocViews.show(system_input);
+  g_DocViews.set_active(system_input);
 }
+
 void save_as_query_current_view()
 {
   save_as_query(g_DocViews.current_document());
@@ -148,9 +143,9 @@ void save_as_query_current_view()
 void close_system_input_buffer(bool user_agreed)
 {
   editor_globals.user_save_as_mode = false;
-  auto system_input = g_DocViews.view_name_get(EditorGlobals::text_input);
-  g_DocViews.hide_view(system_input);
-  g_DocViews.set_active_view(editor_globals.last_view);
+  auto system_input = g_DocViews.get(EditorGlobals::text_input);
+  g_DocViews.hide(system_input);
+  g_DocViews.set_active(editor_globals.last_view);
 
   if (user_agreed) {
     // Then save the file ...
@@ -161,27 +156,27 @@ void close_system_input_buffer(bool user_agreed)
 enum class SystemDocuments : uint8_t { user_input, scratch_pad };
 
 int main(int argv, char *argc[])
+
 {
 
   term::TermControl tc{};
 
   KeyMap key_map;
 
-  g_DocManager.create_system_document(EditorGlobals::text_input);
 
   if (argv >= 2)
     g_DocManager.load(argc[1]);
   else
     g_DocManager.create_empty_document();
 
-  auto user_view = g_DocViews.create_view(g_DocManager.back(), tc.height() - 1, tc.width());
+  auto user_view = g_DocViews.create(g_DocManager.back(), tc.height() - 1, tc.width());
   auto *system_doc = g_DocManager.create_system_document(EditorGlobals::text_input);
-  auto system_view = g_DocViews.create_view(system_doc, Height{ 1 }, tc.width());
+  auto system_view = g_DocViews.create(system_doc, Height{ 1 }, tc.width());
   system_view.get<DocumentView &>().set_position(Col{ 0 }, Row{ tc.height() }, tc.width(), Height{ 1 });
-  g_DocViews.view_name_set(system_view, EditorGlobals::text_input);
-  g_DocViews.hide_view(system_view);
+  g_DocViews.set_name(system_view, EditorGlobals::text_input);
+  g_DocViews.hide(system_view);
 
-  g_DocViews.set_active_view(user_view);
+  g_DocViews.set_active(user_view);
 
 
   editor_globals.rows = term::Row{ tc.height() };
@@ -242,7 +237,7 @@ int main(int argv, char *argc[])
     key_once(kmSpecial, term::KeyCodes::ESCAPE, ::close_system_input_buffer(false), SpecialKeys{ 0 });
     auto specialmap = g_DocViews.add_keymap(kmSpecial);
 
-    g_DocViews.assign_keymap_id_to_document(system_view, specialmap);
+    g_DocViews.assign_keymap_id(system_view, specialmap);
   }
 
   auto defKeyMap = g_DocViews.set_default_keymap(key_map);

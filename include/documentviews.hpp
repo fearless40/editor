@@ -56,7 +56,7 @@ private:
 
 
 public:
-  void set_active_view(Iterator index)
+  void set_active(Iterator index)
   {
     if (index.index() < m_views.size()) { m_active_view = index; }
   }
@@ -82,12 +82,12 @@ public:
     return std::distance(m_keymaps.begin(), m_keymaps.end() - 1);
   }
 
-  void assign_keymap_id_to_document(Iterator doc, std::size_t keymapid)
+  void assign_keymap_id(Iterator doc, std::size_t keymapid)
   {
     if (doc != m_views.end() && keymapid < std::size(m_keymaps)) { doc.get<KeymapIndex>() = KeymapIndex{ keymapid }; }
   }
 
-  Iterator create_view(Document *doc, Height row_height, Width col_width)
+  Iterator create(Document *doc, Height row_height, Width col_width)
   {
     m_views.push_back(DocumentView{ doc }, KeymapIndex::def, Visible::visible);
     auto &d = m_views.back<DocumentView>();
@@ -100,7 +100,7 @@ public:
     return m_active_view;
   }
 
-  void view_name_set(Iterator view, const std::string_view name)
+  void set_name(Iterator view, const std::string_view name)
   {
     auto found = std::ranges::find(m_view_names, name, &NameToView::name);
     if (found != m_view_names.end()) { return; }
@@ -108,7 +108,7 @@ public:
     m_view_names.push_back(NameToView{ .name = std::string{ name }, .view = view });
   }
 
-  Iterator view_name_get(const std::string_view name)
+  Iterator get(const std::string_view name)
   {
     auto found = std::ranges::find(m_view_names, name, &NameToView::name);
     if (found == m_view_names.end()) { return m_views.end(); }
@@ -116,17 +116,17 @@ public:
   }
 
 
-  constexpr void hide_view(Iterator view)
+  constexpr void hide(Iterator view)
   {
     if (view != m_views.end()) view.get<Visible>() = Visible::hidden;
   }
 
-  constexpr void show_view(Iterator view)
+  constexpr void show(Iterator view)
   {
     if (view != m_views.end()) view.get<Visible>() = Visible::visible;
   }
 
-  constexpr auto get_visible_views()
+  constexpr auto get_visible()
   {
     return std::views::filter(m_views, [](auto tup) { return std::get<Visible &>(tup) == Visible::visible; })
            | std::views::transform([](auto tup) -> DocumentView & { return std::get<DocumentView &>(tup); });
